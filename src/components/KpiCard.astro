@@ -1,0 +1,53 @@
+---
+interface Props {
+  label: string;
+  value: string;
+  note?: string;
+  /** Money moving in or out: adds a small direction badge next to the label. */
+  direction?: 'in' | 'out';
+  /** Prefixes the note with a status dot (healthy = emerald, alert = rose). */
+  status?: 'healthy' | 'alert';
+  /** The hero card: emerald accent border and glow. */
+  featured?: boolean;
+}
+const { label, value, note, direction, status, featured = false } = Astro.props;
+---
+<div
+  class:list={[
+    'card grid gap-1 content-start',
+    featured && 'border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-inflow/10 via-surface to-surface',
+  ]}
+>
+  <span class="flex items-center gap-2 label">
+    {
+      direction && (
+        <span
+          class:list={[
+            'grid place-items-center size-5 rounded-md',
+            direction === 'in' ? 'bg-inflow/12 text-inflow' : 'bg-outflow/12 text-outflow',
+          ]}
+          aria-hidden="true"
+        >
+          <svg viewBox="0 0 16 16" class="size-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            {direction === 'in' ? <path d="M11.5 4.5 4.5 11.5M4.5 6v5.5H10" /> : <path d="M4.5 11.5 11.5 4.5M6 4.5h5.5V10" />}
+          </svg>
+        </span>
+      )
+    }
+    {label}
+  </span>
+  <b class="mono text-[26px] text-ink">{value}</b>
+  {
+    note && (
+      <small
+        class:list={[
+          'flex items-center text-[13px]',
+          featured ? 'text-inflow font-medium' : 'text-ink-2',
+        ]}
+      >
+        {status && <span class:list={['dot size-1.5', status === 'healthy' ? 'bg-inflow' : 'bg-outflow']} aria-hidden="true" />}
+        {note}
+      </small>
+    )
+  }
+</div>

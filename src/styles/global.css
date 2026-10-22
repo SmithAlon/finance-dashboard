@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+/* Raw tokens stay as CSS variables so inline styles (e.g. chart segments) can reference them.
+   Dark is the default; light follows the OS preference. */
+:root {
+  color-scheme: dark;
+  --canvas: #0b0f17; --surface: #131b2a; --surface-2: #1b2538; --line: #26354d;
+  --ink: #f8fafc; --ink-2: #94a3b8; --ink-3: #64748b;
+  --brand: #3b82f6; --brand-hover: #2563eb;
+  --inflow: #10b981; --outflow: #f43f5e; --transfer: #38bdf8; --passive: #818cf8;
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.03), 0 10px 30px -16px rgb(0 0 0 / 0.7);
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --canvas: #f8fafc; --surface: #ffffff; --surface-2: #f1f5f9; --line: #e2e8f0;
+    --ink: #0f172a; --ink-2: #475569; --ink-3: #94a3b8;
+    --brand: #2563eb; --brand-hover: #1d4ed8;
+    --inflow: #059669; --outflow: #e11d48; --transfer: #0284c7; --passive: #4f46e5;
+    --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -12px rgb(15 23 42 / 0.1);
+  }
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-inflow: var(--inflow);
+  --color-outflow: var(--outflow);
+  --color-transfer: var(--transfer);
+  --color-passive: var(--passive);
+  --shadow-card: var(--shadow-card);
+  --font-sans: Inter, system-ui, sans-serif;
+}
+
+@layer base {
+  body { @apply bg-canvas text-ink font-sans text-[15px]/normal antialiased; }
+  h1, h2 { @apply font-semibold tracking-[-0.02em]; }
+  :focus-visible { @apply outline-2 outline-brand outline-offset-2; }
+}
+
+/* Patterns repeated across several sections. */
+@utility card { @apply bg-surface border border-line rounded-2xl p-5 shadow-card; }
+/* Financial figures: proportional sans with tabular digits so columns line up. */
+@utility mono { @apply font-semibold tabular-nums tracking-[-0.01em]; }
+@utility label { @apply text-ink-2 text-xs font-medium uppercase tracking-[0.06em]; }
+@utility sub { @apply text-ink-2 text-[13px] mb-3.5; }
+@utility dot { @apply inline-block size-2 rounded-full mr-2 shrink-0; }
+@utility data-table {
+  @apply w-full border-collapse text-[12.5px] md:text-[13.5px];
+  & th { @apply text-left text-ink-2 font-medium text-xs px-2 py-1.5 border-b border-line; }
+  & td { @apply px-2 py-[9px] border-b border-line; }
+}
+@utility field {
+  @apply w-full min-w-0 h-9 bg-surface-2 border border-line rounded-lg px-3 text-[13px] text-ink;
+  @apply placeholder:text-ink-3 hover:border-ink-3/60 transition-colors;
+  &:focus, &:focus-visible { @apply outline-none border-brand ring-1 ring-brand; }
+}

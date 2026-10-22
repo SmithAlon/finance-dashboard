@@ -1,0 +1,13 @@
+---
+interface Props {
+  asOf: string;
+}
+const { asOf } = Astro.props;
+---
+<header class="flex justify-between items-end gap-4 flex-wrap mb-2">
+  <div>
+    <p class="mb-1 text-ink-2 text-[13px]">Personal finances · MXN</p>
+    <h1 class="text-[clamp(28px,5vw,40px)]">Take control, grow, enjoy.</h1>
+  </div>
+  <p class="text-ink-3 text-[13px] tabular-nums">As of {asOf}</p>
+</header>

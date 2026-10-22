@@ -1,0 +1,53 @@
+---
+import type { Tab } from '../types';
+
+interface Props {
+  tabs: Tab[];
+  label?: string;
+}
+const { tabs, label = 'Finance sections' } = Astro.props;
+---
+<div class="flex w-full sm:w-fit gap-1 p-1 bg-surface border border-line rounded-xl shadow-card overflow-x-auto" role="tablist" aria-label={label}>
+  {
+    tabs.map((t, i) => (
+      <button
+        role="tab"
+        id={`tab-${t.id}`}
+        aria-controls={`panel-${t.id}`}
+        aria-selected={i === 0 ? 'true' : 'false'}
+        tabindex={i === 0 ? 0 : -1}
+        data-tab={t.id}
+        class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm text-ink-2 font-medium whitespace-nowrap cursor-pointer transition-colors hover:text-ink hover:bg-surface-2/60 aria-selected:bg-surface-2 aria-selected:text-ink aria-selected:shadow-sm aria-selected:ring-1 aria-selected:ring-line focus-visible:outline-offset-0"
+      >
+        {t.label}
+      </button>
+    ))
+  }
+</div>
+
+<script>
+  const tabBtns = [...document.querySelectorAll<HTMLButtonElement>('[role=tab]')];
+
+  function selectTab(id: string, focus = false) {
+    tabBtns.forEach((b) => {
+      const on = b.dataset.tab === id;
+      b.setAttribute('aria-selected', String(on));
+      b.tabIndex = on ? 0 : -1;
+      const panel = document.getElementById('panel-' + b.dataset.tab);
+      if (panel) panel.hidden = !on;
+      if (on && focus) b.focus();
+    });
+    history.replaceState(null, '', '#' + id);
+  }
+
+  tabBtns.forEach((b, i) => {
+    b.addEventListener('click', () => selectTab(b.dataset.tab!));
+    b.addEventListener('keydown', (e) => {
+      const d = ({ ArrowRight: 1, ArrowLeft: -1 } as Record<string, number>)[e.key];
+      if (d) selectTab(tabBtns[(i + d + tabBtns.length) % tabBtns.length].dataset.tab!, true);
+    });
+  });
+
+  const initial = location.hash.slice(1);
+  if (tabBtns.some((b) => b.dataset.tab === initial)) selectTab(initial);
+</script>

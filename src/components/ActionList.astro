@@ -1,0 +1,21 @@
+---
+import type { ActionItem } from '../data/types';
+
+interface Props {
+  items: ActionItem[];
+}
+const { items } = Astro.props;
+---
+<ol>
+  {
+    items.map((a) => (
+      <li class="flex justify-between gap-4 py-3 border-b border-line last:border-b-0">
+        <div class="grid gap-0.5">
+          <b class="font-semibold">{a.title}</b>
+          <span class="text-ink-2 text-[13px]">{a.detail}</span>
+        </div>
+        <em class="not-italic self-start whitespace-nowrap rounded-full bg-brand/12 text-brand ring-1 ring-brand/25 px-2.5 py-0.5 text-xs font-medium">{a.due}</em>
+      </li>
+    ))
+  }
+</ol>

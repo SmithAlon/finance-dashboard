@@ -1,0 +1,42 @@
+---
+import type { ActionItem } from '../data/types';
+import { mxn, pct } from '../lib/format';
+import ActionList from './ActionList.astro';
+
+interface Props {
+  debt: number;
+  income: number;
+  netWorth: number;
+  guaranteeDeposit: number;
+  actions: ActionItem[];
+}
+const { debt, income, netWorth, guaranteeDeposit, actions } = Astro.props;
+
+const stats = [
+  { label: 'Total debt', value: mxn(debt) },
+  { label: 'Debt-to-income', value: pct(debt / income) },
+  { label: 'Credit guarantee deposit', value: mxn(guaranteeDeposit) },
+];
+---
+<div class="card">
+  <h2 class="text-xl mb-2">Debt</h2>
+  <p class="sub">
+    {
+      debt === 0
+        ? 'No outstanding debt. Liquid net worth equals total account balances.'
+        : `Outstanding debt reduces net worth to ${mxn(netWorth)}.`
+    }
+  </p>
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+    {
+      stats.map((s) => (
+        <div class="grid gap-0.5">
+          <span class="label">{s.label}</span>
+          <b class="mono text-xl">{s.value}</b>
+        </div>
+      ))
+    }
+  </div>
+  <h3 class="text-xs uppercase tracking-[0.08em] text-ink-2 font-semibold mt-4 mb-1.5">Keep it that way</h3>
+  <ActionList items={actions} />
+</div>

@@ -1,0 +1,13 @@
+---
+import type { ActionItem } from '../data/types';
+import ActionList from './ActionList.astro';
+
+interface Props {
+  items: ActionItem[];
+}
+const { items } = Astro.props;
+---
+<section class="card">
+  <h2 class="text-xl mb-2">Action plan</h2>
+  <ActionList items={items} />
+</section>

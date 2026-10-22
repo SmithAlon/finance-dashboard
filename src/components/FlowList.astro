@@ -1,0 +1,29 @@
+---
+import type { FlowItem } from '../data/types';
+import { mxn } from '../lib/format';
+
+interface Props {
+  title: string;
+  subtitle: string;
+  items: FlowItem[];
+  /** Largest flow across all lists, so bars are comparable between tabs. */
+  maxFlow: number;
+  barClass: string;
+}
+const { title, subtitle, items, maxFlow, barClass } = Astro.props;
+---
+<div class="card">
+  <h2 class="text-xl mb-2">{title}</h2>
+  <p class="sub">{subtitle}</p>
+  {
+    items.map((item) => (
+      <div class="grid grid-cols-[1fr_90px] gap-x-3 gap-y-0.5 items-center mb-2.5 text-[13px]">
+        <span>{item.label}</span>
+        <b class="mono col-start-2 row-start-1 row-span-2 text-right">{mxn(item.amount)}</b>
+        <div class="h-2 bg-surface-2 rounded-full overflow-hidden">
+          <i class:list={['block h-full rounded-full', barClass]} style={`width:${(item.amount / maxFlow) * 100}%`} />
+        </div>
+      </div>
+    ))
+  }
+</div>

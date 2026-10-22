@@ -1,0 +1,45 @@
+---
+import type { Allocation } from '../types';
+import { mxn, pct } from '../lib/format';
+
+interface Props {
+  income: number;
+  spend: number;
+  target: Allocation;
+  plan: Allocation;
+}
+const { income, spend, target, plan } = Astro.props;
+
+const rows = [
+  { key: 'obligations', label: 'Obligations + lifestyle', dot: 'bg-outflow' },
+  { key: 'savings', label: 'Savings', dot: 'bg-inflow' },
+  { key: 'investing', label: 'Investing (DCA via GBM)', dot: 'bg-passive' },
+] as const;
+---
+<div class="card">
+  <h2 class="text-xl mb-2">50 / 30 / 20 split</h2>
+  <p class="sub">
+    Your obligations take {pct(spend / income)} of income against a 50% budget, so the surplus is split between savings
+    and investing at the same 30:20 ratio.
+  </p>
+  <div class="flex h-3.5 rounded-full overflow-hidden gap-0.5 mt-1 mb-3.5" role="img" aria-label="Plan allocation">
+    {rows.map((r) => <i class:list={['block h-full', r.dot]} style={`width:${(plan[r.key] / income) * 100}%`} />)}
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr><th></th><th>Target (50/30/20)</th><th>Your plan</th><th>% of income</th></tr>
+    </thead>
+    <tbody>
+      {
+        rows.map((r) => (
+          <tr>
+            <td><span class:list={['dot', r.dot]}></span>{r.label}</td>
+            <td class="mono">{mxn(target[r.key])}</td>
+            <td class="mono">{mxn(plan[r.key])}</td>
+            <td class="mono">{pct(plan[r.key] / income)}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</div>

@@ -1,0 +1,13 @@
+---
+import type { TabId } from '../types';
+
+interface Props {
+  id: TabId;
+  hidden?: boolean;
+  class?: string;
+}
+const { id, hidden = false, class: className } = Astro.props;
+---
+<section id={`panel-${id}`} role="tabpanel" aria-labelledby={`tab-${id}`} hidden={hidden} class={className}>
+  <slot />
+</section>
