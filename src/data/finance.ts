@@ -1,7 +1,7 @@
 // Single source of truth for the dashboard. Edit numbers here; everything recomputes.
 // Source: "Financial Context Profile.pdf" (Master Financial Context Profile) + saved goals.
 
-import type { Account, ActionItem, Defaults, FlowItem, Framework, Goals, IncomeCategory, IncomeItem } from './types';
+import type { Account, ActionItem, Defaults, ExpenseCategory, ExpenseItem, Framework, Goals, IncomeCategory, IncomeItem } from './types';
 
 export const incomeCategories: IncomeCategory[] = [
   { id: 'active', label: 'Active income', hint: 'Salary, stipend, freelance: money earned by working.', tone: 'inflow' },
@@ -15,10 +15,17 @@ export const inflows: IncomeItem[] = [
   { label: 'Family support ($600/wk × 52 ÷ 12)', amount: 2600, category: 'support' },
 ];
 
-export const outflows: FlowItem[] = [
-  { label: 'Digital & work tools (Claude Pro)', amount: 400 },
-  { label: 'Telecom (mobile recharge)', amount: 400 },
-  { label: 'Lifestyle & snacks', amount: 800 },
+export const expenseCategories: ExpenseCategory[] = [
+  { id: 'fixed', label: 'Bills & subscriptions', hint: 'Phone, software, rent: recurring commitments.', tone: 'outflow' },
+  { id: 'variable', label: 'Day-to-day spending', hint: 'Food, transport, snacks: amounts that move month to month.', tone: 'transfer' },
+  { id: 'other', label: 'One-offs & other', hint: 'Gifts, repairs, annual fees.', tone: 'neutral' },
+];
+
+// Starting values for the Outflows form; the form's edits are kept in the browser.
+export const outflows: ExpenseItem[] = [
+  { label: 'Digital & work tools (Claude Pro)', amount: 400, category: 'fixed' },
+  { label: 'Telecom (mobile recharge)', amount: 400, category: 'fixed' },
+  { label: 'Lifestyle & snacks', amount: 800, category: 'variable' },
 ];
 
 export const accounts: Account[] = [

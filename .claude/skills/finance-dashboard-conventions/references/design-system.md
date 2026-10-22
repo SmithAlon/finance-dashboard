@@ -27,7 +27,7 @@ Shadow `shadow-card` is a faint top highlight plus soft drop in dark, a light dr
 
 ## Patterns
 
-- **Hero card**: `border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-inflow/10 via-surface to-surface`. Used for the investable surplus KPI and the income total. One per view region.
+- **Hero card**: `border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-inflow/10 via-surface to-surface`. Used for the investable surplus KPI and each form total (tinted by the form's tone via `tones[tone].hero`). One per view region.
 - **Direction badge** (KPI inflow/outflow): 20px rounded square, `bg-<tone>/12 text-<tone>`, arrow icon. The amount itself stays `text-ink`.
 - **Status dot** next to a muted note (`Debt: $0`): emerald when healthy, rose when not.
 - **Category badge**: `rounded-full px-2.5 py-1 text-[13px] font-semibold ring-1` + `tones[tone].badge`, with a 6px dot.
@@ -44,4 +44,4 @@ Shadow `shadow-card` is a faint top highlight plus soft drop in dark, a light dr
 - Don't colour an amount red or green just to be noticeable; use a badge or dot next to it.
 - Don't add a dark-mode class toggle without deciding it with the user; theme currently follows the OS.
 - Don't introduce a second font, a pure-black or pure-white background, or a new border colour.
-- Don't add new bright accent hues; extra categories reuse the existing four tones or neutral `ink-3`.
+- Don't add new bright accent hues; extra categories reuse the existing four tones or the `neutral` tone (`ink-3`).

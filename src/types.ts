@@ -7,10 +7,4 @@ export interface Allocation {
   investing: number;
 }
 
-export type TabId = 'inflows' | 'outflows' | 'accounts' | 'debt';
-
-export interface Tab {
-  id: TabId;
-  label: string;
-}
-
+export type TabId = 'inflows' | 'outflows' | 'surplus' | 'accounts';

@@ -4,8 +4,7 @@ import Header from "../components/Header.astro";
 import KpiCard from "../components/KpiCard.astro";
 import Tabs from "../components/Tabs.astro";
 import TabPanel from "../components/TabPanel.astro";
-import FlowList from "../components/FlowList.astro";
-import IncomeForm from "../components/IncomeForm.astro";
+import FlowForm from "../components/FlowForm.astro";
 import AllocationSplit from "../components/AllocationSplit.astro";
 import BalanceSheet from "../components/BalanceSheet.astro";
 import DebtSummary from "../components/DebtSummary.astro";
@@ -14,6 +13,7 @@ import {
   inflows,
   incomeCategories,
   outflows,
+  expenseCategories,
   accounts,
   debt,
   framework,
@@ -21,7 +21,7 @@ import {
   actionPlan,
 } from "../data/finance";
 import type { Amounted } from "../data/types";
-import type { Allocation, Tab } from "../types";
+import type { Allocation } from "../types";
 import { mxn, pct } from "../lib/format";
 
 const sum = (xs: Amounted[]) => xs.reduce((a, x) => a + x.amount, 0);
@@ -44,63 +44,89 @@ const plan: Allocation = {
   investing: surplus * (1 - savShare),
 };
 
-const maxFlow = Math.max(
-  ...inflows.map((i) => i.amount),
-  ...outflows.map((o) => o.amount),
-);
 const guaranteeDeposit =
   accounts.find((a) => a.name.startsWith("Credit"))?.amount ?? 0;
-const tabs: Tab[] = [
-  { id: "inflows", label: "Inflows" },
-  { id: "outflows", label: "Outflows" },
-  { id: "accounts", label: "Accounts" },
-  { id: "debt", label: "Debt" },
-];
 ---
 
 <Base title="Finance Dashboard">
   <main class="max-w-[1040px] mx-auto px-4 pt-8 pb-16 grid gap-4">
     <Header asOf={goals.today} />
 
-    <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
-      <KpiCard label="Monthly inflow" value={mxn(income)} direction="in" />
-      <KpiCard label="Monthly outflow" value={mxn(spend)} note={`${pct(spend / income)} of inflow`} direction="out" />
+    <section
+      class="grid grid-cols-2 md:grid-cols-4 gap-3"
+      role="tablist"
+      aria-label="Finance sections"
+    >
+      <KpiCard
+        label="Monthly inflow"
+        value={mxn(income)}
+        direction="in"
+        tab="inflows"
+        selected
+      />
+      <KpiCard
+        label="Monthly outflow"
+        value={mxn(spend)}
+        note={`${pct(spend / income)} of inflow`}
+        direction="out"
+        tab="outflows"
+      />
       <KpiCard
         label="Investable surplus"
         value={mxn(surplus)}
         note={`${pct(savingsRate)} savings rate`}
         featured
+        tab="surplus"
       />
       <KpiCard
         label="Liquid net worth"
         value={mxn(netWorth)}
         note={`Debt: ${mxn(debt)}`}
         status={debt === 0 ? "healthy" : "alert"}
+        tab="accounts"
       />
     </section>
 
-    <Tabs tabs={tabs} />
+    <Tabs />
 
     <TabPanel id="inflows">
-      <IncomeForm categories={incomeCategories} items={inflows} />
-    </TabPanel>
-
-    <TabPanel id="outflows" hidden class="grid grid-cols-1 md:grid-cols-[1fr_1.3fr] gap-4">
-      <FlowList
-        title="Outflows"
-        subtitle={`${mxn(spend)} per month, ${pct(spend / income)} of income.`}
-        items={outflows}
-        maxFlow={maxFlow}
-        barClass="bg-outflow"
+      <FlowForm
+        id="inflows"
+        title="Income sources"
+        noun="income"
+        placeholder="Income source"
+        totalLabel="Total monthly income"
+        tone="inflow"
+        categories={incomeCategories}
+        items={inflows}
+        legacyKey="finance:inflows:v1"
       />
-      <AllocationSplit income={income} spend={spend} target={target} plan={plan} />
     </TabPanel>
 
-    <TabPanel id="accounts" hidden>
+    <TabPanel id="outflows" hidden>
+      <FlowForm
+        id="outflows"
+        title="Expenses"
+        noun="expense"
+        placeholder="Expense"
+        totalLabel="Total monthly spending"
+        tone="outflow"
+        categories={expenseCategories}
+        items={outflows}
+      />
+    </TabPanel>
+
+    <TabPanel id="surplus" hidden>
+      <AllocationSplit
+        income={income}
+        spend={spend}
+        target={target}
+        plan={plan}
+      />
+    </TabPanel>
+
+    <TabPanel id="accounts" hidden class="grid gap-4">
       <BalanceSheet accounts={accounts} netWorth={netWorth} />
-    </TabPanel>
-
-    <TabPanel id="debt" hidden>
       <DebtSummary
         debt={debt}
         income={income}
@@ -109,7 +135,5 @@ const tabs: Tab[] = [
         actions={actionPlan.filter((a) => a.title.includes("Nu card"))}
       />
     </TabPanel>
-
-    <ActionPlan items={actionPlan} />
   </main>
 </Base>

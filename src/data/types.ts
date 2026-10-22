@@ -10,26 +10,31 @@ export interface FlowItem extends Amounted {
   label: string;
 }
 
-/** Semantic cashflow colours shared by badges, dots and bars. */
-export type Tone = 'inflow' | 'outflow' | 'transfer' | 'passive';
+/** Semantic cashflow colours shared by badges, dots and bars; `neutral` is muted ink. */
+export type Tone = 'inflow' | 'outflow' | 'transfer' | 'passive' | 'neutral';
 
 export type IncomeCategoryId = 'active' | 'support' | 'passive';
+export type ExpenseCategoryId = 'fixed' | 'variable' | 'other';
 
-/** How often an income line is received; converted to a monthly figure for totals. */
+/** How often a line is received or paid; converted to a monthly figure for totals. */
 export type Frequency = 'week' | 'biweek' | 'month' | 'year' | 'once';
 
-/** A group the Inflows form divides income into. */
-export interface IncomeCategory {
-  id: IncomeCategoryId;
+/** A group the Inflows or Outflows form divides its lines into. */
+export interface FlowCategory<Id extends string = string> {
+  id: Id;
   label: string;
   hint: string;
   tone: Tone;
 }
+export type IncomeCategory = FlowCategory<IncomeCategoryId>;
+export type ExpenseCategory = FlowCategory<ExpenseCategoryId>;
 
-/** A monthly inflow line, tagged with the category it belongs to. */
-export interface IncomeItem extends FlowItem {
-  category: IncomeCategoryId;
+/** A monthly flow line, tagged with the category it belongs to. */
+export interface CategorizedFlowItem<Id extends string = string> extends FlowItem {
+  category: Id;
 }
+export type IncomeItem = CategorizedFlowItem<IncomeCategoryId>;
+export type ExpenseItem = CategorizedFlowItem<ExpenseCategoryId>;
 
 export interface Account extends Amounted {
   name: string;

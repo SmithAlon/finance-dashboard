@@ -1,4 +1,6 @@
 ---
+import type { TabId } from '../types';
+
 interface Props {
   label: string;
   value: string;
@@ -9,12 +11,26 @@ interface Props {
   status?: 'healthy' | 'alert';
   /** The hero card: emerald accent border and glow. */
   featured?: boolean;
+  /** Makes the card a tab that shows the panel with this id. */
+  tab?: TabId;
+  selected?: boolean;
 }
-const { label, value, note, direction, status, featured = false } = Astro.props;
+const { label, value, note, direction, status, featured = false, tab, selected = false } = Astro.props;
+const Tag = tab ? 'button' : 'div';
 ---
-<div
+<Tag
+  {...(tab && {
+    type: 'button',
+    role: 'tab',
+    id: `tab-${tab}`,
+    'aria-controls': `panel-${tab}`,
+    'aria-selected': selected ? 'true' : 'false',
+    tabindex: selected ? 0 : -1,
+    'data-tab': tab,
+  })}
   class:list={[
-    'card grid gap-1 content-start',
+    'card grid gap-1 content-start text-left',
+    tab && 'cursor-pointer transition-colors hover:border-ink-3/60 aria-selected:ring-2 aria-selected:ring-brand aria-selected:border-brand',
     featured && 'border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-inflow/10 via-surface to-surface',
   ]}
 >
@@ -50,4 +66,4 @@ const { label, value, note, direction, status, featured = false } = Astro.props;
       </small>
     )
   }
-</div>
+</Tag>

@@ -21,12 +21,12 @@ This project stays easy to change because each kind of decision has one home. Be
 | Page composition and derived numbers | `src/pages/index.astro` | Imports data, computes, passes props. Keep it assembly, not markup. |
 
 Component rules:
-- A component takes everything it displays as props (see `FlowList`, `BalanceSheet`). Only `IncomeForm` imports helpers, and only from `lib/`.
+- A component takes everything it displays as props (see `FlowList`, `BalanceSheet`). Only `FlowForm` (shared by the Inflows and Outflows tabs) imports helpers, and only from `lib/`. A new categorised money list is another `<FlowForm>` with its own `id`, categories and copy, not a new component.
 - New tab: add the id to `TabId` and an entry in the `tabs` array in `index.astro`, then wrap the content in `<TabPanel id=... hidden>`. The first panel is visible, the rest `hidden`. `Tabs.astro` handles clicks, arrow keys and `#hash` state; do not add a second tab script.
 - Client behaviour lives in a `<script>` at the bottom of the component that owns the markup, finds its root through a `data-*` attribute, and does nothing if the root is missing. Pass server data in as a `data-*` JSON attribute, not through `define:vars`, so the script stays bundled and typed.
 - Hook scripts to `data-*` attributes (`data-row`, `data-total`), never to Tailwind classes, so restyling cannot break behaviour.
 - Rows added by JS are cloned from a `<template>` that renders the same component as the server rows, so server and client markup cannot drift.
-- Persisted client state: one namespaced, versioned localStorage key (`finance:inflows:v1`), every access in try/catch, and a visible "reset to saved profile" that restores the `finance.ts` values. Bump the version when the stored shape changes.
+- Persisted client state: one namespaced, versioned localStorage key per form (`finance:<id>:v2`, e.g. `finance:inflows:v2`), every access in try/catch, and a visible "reset to saved profile" that restores the `finance.ts` values. Bump the version when the stored shape changes.
 - Money is MXN. Amounts that can be entered at different frequencies are stored with a frequency and converted to monthly for totals; totals are always monthly, with annual shown beside them.
 
 ## Design: the short version
@@ -49,7 +49,7 @@ Non-negotiables:
 
 ## Known loose ends (do not "fix" silently, ask first)
 
-- The top KPI cards read `finance.ts`, not the live values in the Inflows form.
+- The top KPI cards read `finance.ts`, not the live values in the Inflows or Outflows forms.
 - The family-support row is stored as a monthly 2600 with the weekly maths in its label.
 - Both `package-lock.json` and `pnpm-lock.yaml` exist; use `npm` unless told otherwise.
 - The projection/goals section and its script were removed; `goals` and `defaults` remain in `finance.ts` for a future restore.
