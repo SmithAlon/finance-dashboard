@@ -36,4 +36,4 @@ There is no test suite or linter. To verify UI changes, build, serve over HTTP (
 
 ## Repo quirks
 
-There is no `.gitignore`: `dist/`, `node_modules/` and `.astro/` are committed, so builds show up as git changes. Don't stage them unless asked.
+`.gitignore` keeps `dist/`, `node_modules/`, `.astro/`, env files and personal exports (CSV or PDF at the repo root, `exports/`, `finance-backup-*.json`) out of git. The history was squashed before the repo went public because older commits held real figures: never commit a real balance, name or broker export, including inside a build.

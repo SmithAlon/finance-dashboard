@@ -24,9 +24,15 @@ npm run preview  # serve dist/
 - **Retirement plan savings:** add a plan under Investments → PPR, type what you add each time and how often (for example 583 twice a month).
 - **A value you don't know:** leave it blank. It shows as missing and totals are marked partial; the dashboard never treats an empty field as 0.
 
-## Privacy
+## Privacy and security
 
-Nothing is sent anywhere except the exchange-rate request made at build time. Your edits live in localStorage, which is per browser and per site. Don't commit real balances or a real broker export to a public repo.
+Your financial data stays in your browser. There is no server, account or analytics: what you type is saved in localStorage, which belongs to one browser on one device and one site. The only network request is the exchange rate, which carries no data of yours.
+
+If you fork or contribute:
+
+- Never commit real balances, names or a real broker or bank export. `.gitignore` blocks the usual places (CSV or PDF files at the repo root, `exports/`, `finance-backup-*.json`), but it can't catch a real number typed into `src/data/finance.ts`.
+- `dist/` is not committed. A build bakes the sample data into the HTML, so a committed build can leak whatever the source held at that moment.
+- To report a security problem, open a GitHub issue without personal data, or contact the maintainer through their GitHub profile.
 
 ## Project notes
 
