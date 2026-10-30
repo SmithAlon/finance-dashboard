@@ -3,9 +3,10 @@
 // summary and the "Included in these totals" strip. Rendered from the seed, then kept live from
 // the forms (`readFlow` / `readCredit`) on every `flowchange`.
 import KpiCard from "./KpiCard.astro";
-import type { Account, CreditStore, InvestmentStore, Maybe } from "../data/types";
+import type { Account, CreditStore, InvestmentStore } from "../data/types";
+import { rates } from "../lib/display";
 import { summarizeAccounts } from "../lib/accounts";
-import { mxn } from "../lib/format";
+import { dash, fmt } from "../lib/format";
 import { summarize, summarySentence } from "../lib/credit";
 import { investedNote, summarizeInvestments } from "../lib/investments";
 import { liquidNetWorth } from "../lib/networth";
@@ -17,10 +18,6 @@ interface Props {
   seedAccounts: Account[];
   seedCredit: CreditStore;
   seedInvestments: InvestmentStore;
-  /** Build-time USD→MXN rate, so a dollar portfolio is valued like the editor values it. */
-  usdMxn: Maybe;
-  /** ISO date of that rate, to warn when it is old. */
-  fxDate: string | null;
   /** `data-flow-id`s of the forms read live. */
   inflows: string;
   outflows: string;
@@ -28,10 +25,10 @@ interface Props {
   credit: string;
   investments: string;
 }
-const { income, spend, seedAccounts, accounts, seedCredit, seedInvestments, usdMxn, fxDate, inflows, outflows, credit, investments } = Astro.props;
+const { income, spend, seedAccounts, accounts, seedCredit, seedInvestments, inflows, outflows, credit, investments } = Astro.props;
 const monthly = income - spend;
 const s = summarize(seedCredit);
-const inv = summarizeInvestments(seedInvestments, usdMxn);
+const inv = summarizeInvestments(seedInvestments, rates());
 const worth = liquidNetWorth(summarizeAccounts(seedAccounts), inv, s);
 const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-inflow/10 via-surface to-surface";
 ---
@@ -44,15 +41,14 @@ const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-in
   data-credit={credit}
   data-investments={investments}
   data-accounts={accounts}
-  data-fx-date={fxDate ?? ""}
   data-featured={featured}
 >
   <section class="grid grid-cols-2 md:grid-cols-4 gap-3" role="tablist" aria-label="Finance sections" data-hash>
     <KpiCard
       kpi="monthly"
       label="Monthly balance"
-      value={mxn(monthly)}
-      note={`${mxn(income)} in · ${mxn(spend)} out`}
+      value={fmt(monthly)}
+      note={`${fmt(income)} in · ${fmt(spend)} out`}
       hint="Incomes minus expenses in a typical month, before credit payments."
       featured={monthly >= 0}
       status={monthly >= 0 ? undefined : "alert"}
@@ -63,7 +59,7 @@ const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-in
     <KpiCard
       kpi="owed"
       label="Owed on credit"
-      value={mxn(s.owedKnown)}
+      value={fmt(s.owedKnown)}
       note="No credit accounts added"
       hint="What your cards and loans still need paid, MSI (interest-free installments) included."
       tab="debt"
@@ -71,7 +67,7 @@ const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-in
     <KpiCard
       kpi="worth"
       label="Liquid net worth"
-      value={worth.value == null ? "$—" : mxn(worth.value)}
+      value={worth.value == null ? dash() : fmt(worth.value)}
       note={worth.note}
       hint="Accounts plus portfolio and fixed income, minus what you owe on credit. PPR is left out: it is locked until retirement."
       tab="accounts"
@@ -79,7 +75,7 @@ const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-in
     <KpiCard
       kpi="invested"
       label="Invested"
-      value={mxn(inv.value)}
+      value={fmt(inv.value)}
       note={investedNote(inv)}
       hint="Portfolio, fixed income and PPR at today's value."
       tab="investments"
@@ -105,9 +101,11 @@ const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-in
 </div>
 
 <script>
-  import { mxn } from "../lib/format";
+  import { dash, fmt } from "../lib/format";
   import { toMonthly } from "../lib/income";
-  import { readAccounts, readCredit, readFlow, readInvestments, readUsdMxn } from "../lib/flows";
+  import { readAccounts, readCredit, readFlow, readInvestments } from "../lib/flows";
+  import { BASE } from "../lib/currency";
+  import { chosenCurrency, rates } from "../lib/display";
   import { summarizeAccounts } from "../lib/accounts";
   import { summarize, summarySentence } from "../lib/credit";
   import { investedNote, summarizeInvestments } from "../lib/investments";
@@ -150,25 +148,26 @@ const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-in
       const s = summarize(readCredit(root.dataset.credit!));
       const n = s.views.length;
 
-      const card = setCard("monthly", mxn(monthly), `${mxn(income)} in · ${mxn(spend)} out`, monthly < 0 ? "alert" : undefined);
+      const card = setCard("monthly", fmt(monthly), `${fmt(income)} in · ${fmt(spend)} out`, monthly < 0 ? "alert" : undefined);
       featured.forEach((c) => card.classList.toggle(c, monthly >= 0));
       q("small", card).classList.toggle("text-inflow", monthly >= 0);
       q("small", card).classList.toggle("font-medium", monthly >= 0);
       q("small", card).classList.toggle("text-ink-2", monthly < 0);
 
       const missing = `${s.unknown} ${s.unknown === 1 ? "account" : "accounts"} with no balance entered`;
-      if (!n) setCard("owed", "$0", "No credit accounts added");
-      else if (!s.complete) setCard("owed", "$—", s.owedKnown ? `${mxn(s.owedKnown)} known · ${missing}` : missing, "alert");
-      else if (s.owedKnown === 0) setCard("owed", "$0", "Nothing owed", "healthy");
-      else setCard("owed", mxn(s.owedKnown), `${mxn(s.payments)} a month in payments`, "alert");
+      if (!n) setCard("owed", fmt(0), "No credit accounts added");
+      else if (!s.complete) setCard("owed", dash(), s.owedKnown ? `${fmt(s.owedKnown)} known · ${missing}` : missing, "alert");
+      else if (s.owedKnown === 0) setCard("owed", fmt(0), "Nothing owed", "healthy");
+      else setCard("owed", fmt(s.owedKnown), `${fmt(s.payments)} a month in payments`, "alert");
 
-      const inv = summarizeInvestments(readInvestments(root.dataset.investments!), readUsdMxn(root.dataset.investments!));
+      const inv = summarizeInvestments(readInvestments(root.dataset.investments!), rates());
       const worth = liquidNetWorth(summarizeAccounts(readAccounts(root.dataset.accounts!)), inv, s);
-      setCard("worth", worth.value == null ? "$—" : mxn(worth.value), worth.note);
-      setCard("invested", inv.unknown && !inv.value ? "$—" : mxn(inv.value), investedNote(inv));
+      setCard("worth", worth.value == null ? dash() : fmt(worth.value), worth.note);
+      setCard("invested", inv.unknown && !inv.value ? dash() : fmt(inv.value), investedNote(inv));
 
-      const dollars = readInvestments(root.dataset.investments!).portfolio?.currency === "USD";
-      const warning = dollars ? fxWarning(root.dataset.fxDate) : null;
+      // Rates matter once anything is converted: a display currency other than pesos, or a foreign portfolio.
+      const converting = chosenCurrency() !== BASE || (readInvestments(root.dataset.investments!).portfolio?.currency ?? BASE) !== BASE;
+      const warning = converting ? fxWarning(rates()?.date) : null;
       q("[data-fx-warning]").textContent = warning ?? "";
       q("[data-fx-warning]").hidden = !warning;
 

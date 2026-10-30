@@ -1,7 +1,7 @@
 ---
 import FlowRow from "./FlowRow.astro";
 import type { CategorizedFlowItem, FlowCategory, Tone } from "../data/types";
-import { mxn, pct } from "../lib/format";
+import { fmt, pct } from "../lib/format";
 import { tones } from "../lib/tone";
 
 interface Props {
@@ -58,7 +58,7 @@ const total = items.reduce((a, i) => a + i.amount, 0);
   <section class="card" aria-labelledby={`${id}-sources`}>
     <header class="flex items-center justify-between gap-3 mb-1.5">
       <h2 id={`${id}-sources`} class="text-2xl">{title}</h2>
-      <b class="mono text-lg" data-total-inline>{mxn(total)}</b>
+      <b class="mono text-lg" data-total-inline>{fmt(total)}</b>
     </header>
     <p class="sub mb-4">
       Pick a type for each line: {
@@ -105,11 +105,11 @@ const total = items.reduce((a, i) => a + i.amount, 0);
       <div class="grid gap-0.5">
         <span id={`${id}-total`} class="label">{totalLabel}</span>
         <b class="mono text-[34px]" data-total aria-live="polite"
-          >{mxn(total)}</b
+          >{fmt(total)}</b
         >
       </div>
       <span class="text-ink-2 text-[13px]">
-        <b class="mono text-ink" data-annual>{mxn(total * 12)}</b> per year
+        <b class="mono text-ink" data-annual>{fmt(total * 12)}</b> per year
       </span>
     </div>
 
@@ -137,7 +137,7 @@ const total = items.reduce((a, i) => a + i.amount, 0);
               {c.label}
             </span>
             <b class="mono" data-cat-total={c.id}>
-              {mxn(subtotal(c.id))}
+              {fmt(subtotal(c.id))}
             </b>
             <span class="mono text-ink-2 text-right" data-cat-share={c.id}>
               {pct(total ? subtotal(c.id) / total : 0)}
@@ -159,7 +159,7 @@ const total = items.reduce((a, i) => a + i.amount, 0);
 
 <script>
   import { toAnnual, toMonthly } from "../lib/income";
-  import { mxn, pct } from "../lib/format";
+  import { fmt, pct } from "../lib/format";
   import type { Frequency } from "../data/types";
   import { confirmReset, seedOf } from "../lib/mode";
 
@@ -217,20 +217,20 @@ const total = items.reduce((a, i) => a + i.amount, 0);
       const state = rows.map((row) => {
         const r = readRow(row);
         const monthly = toMonthly(r.amount ?? 0, r.freq);
-        q(row, "[data-monthly]").textContent = mxn(monthly);
+        q(row, "[data-monthly]").textContent = fmt(monthly);
         totals[r.category] = (totals[r.category] ?? 0) + monthly;
         return r;
       });
       const total = Object.values(totals).reduce((a, b) => a + b, 0);
       const annual = state.reduce((a, r) => a + toAnnual(r.amount ?? 0, r.freq), 0);
       q(root, "[data-empty]").hidden = rows.length > 0;
-      q(root, "[data-total-inline]").textContent = mxn(total);
-      q(root, "[data-total]").textContent = mxn(total);
-      q(root, "[data-annual]").textContent = mxn(annual);
+      q(root, "[data-total-inline]").textContent = fmt(total);
+      q(root, "[data-total]").textContent = fmt(total);
+      q(root, "[data-annual]").textContent = fmt(annual);
       for (const [id, sub] of Object.entries(totals)) {
         const share = total ? sub / total : 0;
         q(root, `[data-bar="${id}"]`).style.width = share * 100 + "%";
-        q(root, `[data-cat-total="${id}"]`).textContent = mxn(sub);
+        q(root, `[data-cat-total="${id}"]`).textContent = fmt(sub);
         q(root, `[data-cat-share="${id}"]`).textContent = pct(share);
       }
       // Other sections (the headline, the debt projection) read the live rows from here.
@@ -262,6 +262,8 @@ const total = items.reduce((a, i) => a + i.amount, 0);
     } catch {}
     recalc();
 
+    // Fresher exchange rates change every converted figure.
+    document.addEventListener("ratechange", () => recalc());
     root.addEventListener("input", save);
     root.addEventListener("click", (e) => {
       const btn = (e.target as HTMLElement).closest("button");

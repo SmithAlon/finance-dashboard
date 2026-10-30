@@ -2,9 +2,10 @@
 // how GBM reports a portfolio: value today, cost, and the unrealised gain (plusvalía). A value
 // that was never entered is `null` and makes the bucket total partial, never $0.
 
-import type { FixedIncomeItem, FixedIncomeKind, InvestmentStore, Maybe, Portfolio, Position, PprPlan, PriceFeed } from '../data/types';
+import type { FixedIncomeItem, FixedIncomeKind, InvestmentStore, Maybe, Portfolio, Position, PprPlan, RateTable } from '../data/types';
+import { rate } from './currency';
 import { fxAge } from './fx';
-import { mxn, pct } from './format';
+import { fmt, pct } from './format';
 import { frequencies, toMonthly } from './income';
 
 export const fixedIncomeKinds: { id: FixedIncomeKind; label: string }[] = [
@@ -65,8 +66,8 @@ const view = (id: string, value: Maybe, cost: Maybe, note = ''): PositionView =>
 export const dateText = (iso: string) =>
   new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-/** Pesos per unit of the portfolio's currency; null when it is in dollars and no rate was fetched. */
-export const toMxnRate = (p: Portfolio, usdMxn: Maybe): Maybe => (p.currency === 'MXN' ? 1 : usdMxn);
+/** Pesos per unit of the portfolio's currency; null when there is no rate for it. */
+export const toMxnRate = (p: Portfolio, table: RateTable | null): Maybe => rate(table, p.currency, 'MXN');
 
 const times = (a: Maybe, b: Maybe): Maybe => (a == null || b == null ? null : a * b);
 
@@ -80,7 +81,7 @@ export function fixedIncomeView(f: FixedIncomeItem, today = new Date()): Positio
     notes.push(`${past ? 'Matured' : 'Matures'} ${dateText(f.maturity)}`);
   }
   const base = f.value ?? f.invested;
-  if (f.rate != null && base != null) notes.push(`~${mxn((base * f.rate) / 100)} a year at ${f.rate}%`);
+  if (f.rate != null && base != null) notes.push(`~${fmt((base * f.rate) / 100)} a year at ${f.rate}%`);
   return view(f.id, f.value, f.invested, notes.join(' · '));
 }
 
@@ -88,9 +89,9 @@ export function fixedIncomeView(f: FixedIncomeItem, today = new Date()): Positio
 export function contributionNote(p: PprPlan): string {
   if (!p.contribution) return '';
   const label = (frequencies.find((f) => f.id === p.frequency)?.label ?? '').toLowerCase();
-  if (p.frequency === 'once') return `You add ${mxn(p.contribution)} once`;
+  if (p.frequency === 'once') return `You add ${fmt(p.contribution)} once`;
   const every = p.frequency === 'month' ? 'a month' : label;
-  return `You add ${mxn(p.contribution)} ${every}` + (p.frequency === 'month' ? '' : ` (≈${mxn(contributionPerMonth(p)!)} a month)`);
+  return `You add ${fmt(p.contribution)} ${every}` + (p.frequency === 'month' ? '' : ` (≈${fmt(contributionPerMonth(p)!)} a month)`);
 }
 
 export const pprView = (p: PprPlan) => view(p.id, p.value, p.contributed, contributionNote(p));
@@ -169,11 +170,11 @@ function slicesOf(store: InvestmentStore, buckets: BucketSummary[]): Slice[] {
   ];
 }
 
-export function summarizeInvestments(store: InvestmentStore, usdMxn: Maybe, today = new Date()): InvestmentSummary {
+export function summarizeInvestments(store: InvestmentStore, table: RateTable | null, today = new Date()): InvestmentSummary {
   const p = store.portfolio;
-  const rate = p ? toMxnRate(p, usdMxn) : null;
+  const toMxn = p ? toMxnRate(p, table) : null;
   const buckets = [
-    bucket('portfolio', (p?.positions ?? []).map((pos) => positionView(pos, rate))),
+    bucket('portfolio', (p?.positions ?? []).map((pos) => positionView(pos, toMxn))),
     bucket('fixedIncome', store.fixedIncome.map((f) => fixedIncomeView(f, today))),
     bucket('ppr', store.ppr.map(pprView)),
   ];
@@ -187,14 +188,14 @@ export function summarizeInvestments(store: InvestmentStore, usdMxn: Maybe, toda
 
 /** "+$1,200 (+4.0%)" or "−$300 (−1.2%)"; the sign is always written, not only coloured. */
 export const gainText = (gain: number, cost: number) =>
-  `${gain > 0 ? '+' : ''}${mxn(gain)}` + (cost ? ` (${gain > 0 ? '+' : gain < 0 ? '−' : ''}${pct(Math.abs(gain / cost))})` : '');
+  `${gain > 0 ? '+' : ''}${fmt(gain)}` + (cost ? ` (${gain > 0 ? '+' : gain < 0 ? '−' : ''}${pct(Math.abs(gain / cost))})` : '');
 
 /** The hero's note: what was paid and the gain, flagged as partial when values are missing. */
 export function investedNote(s: InvestmentSummary): string {
   if (!s.count) return 'Nothing added yet';
   const missing = s.unknown ? ` · ${s.unknown} ${s.unknown === 1 ? 'value' : 'values'} not known` : '';
-  const going = s.monthlyIn ? ` · ${mxn(s.monthlyIn)} a month going in` : '';
-  return (s.cost ? `${gainText(s.gain, s.cost)} on ${mxn(s.cost)} paid in` : 'Gain needs cost and value') + going + missing;
+  const going = s.monthlyIn ? ` · ${fmt(s.monthlyIn)} a month going in` : '';
+  return (s.cost ? `${gainText(s.gain, s.cost)} on ${fmt(s.cost)} paid in` : 'Gain needs cost and value') + going + missing;
 }
 
 /** One sentence above the chart: the biggest slice, or why there is nothing to show. */
@@ -206,14 +207,15 @@ export function allocationTakeaway(s: InvestmentSummary): string {
 }
 
 /** Where the portfolio came from and how its dollars became pesos. */
-export function portfolioNote(p: Portfolio | null, feed: PriceFeed, today = new Date()): string {
+export function portfolioNote(p: Portfolio | null, table: RateTable | null, today = new Date()): string {
   if (!p) return 'No GBM export imported yet.';
   const n = p.positions.filter((x) => !x.cash).length;
   const cash = p.positions.some((x) => x.cash) ? ' + cash' : '';
   const parts = [`${p.file}`, p.asOf ? `taken ${dateText(p.asOf)}` : '', `${n} ${n === 1 ? 'position' : 'positions'}${cash}`].filter(Boolean);
+  const r = rate(table, p.currency, 'MXN');
   const fx =
     p.currency === 'MXN' ? '' :
-    feed.usdMxn ? ` Dollars converted at ${feed.usdMxn.rate.toFixed(4)} MXN (ECB, ${dateText(feed.usdMxn.date)} · ${fxAge(feed.usdMxn.date, today).text}), not Banxico's FIX.` :
-    ' No USD→MXN rate fetched yet, so peso values are unknown: run npm run prices.';
+    r != null && table ? ` Converted at ${r.toFixed(4)} MXN per ${p.currency} (ECB, ${dateText(table.date)} · ${fxAge(table.date, today).text}), not Banxico's FIX.` :
+    ` No ${p.currency}→MXN rate available, so its value in other currencies is unknown.`;
   return parts.join(' · ') + '.' + fx;
 }

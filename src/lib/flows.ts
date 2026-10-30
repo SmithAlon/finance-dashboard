@@ -1,4 +1,4 @@
-import type { Account, CreditStore, InvestmentStore, Maybe } from '../data/types';
+import type { Account, CreditStore, InvestmentStore } from '../data/types';
 import type { ProjectionLine } from './projection';
 
 /**
@@ -20,8 +20,3 @@ export const readAccounts = (id: string): Account[] => readState<Account[]>(id, 
 export const readCredit = (id: string): CreditStore => readState<CreditStore>(id, { accounts: [], msi: [] });
 export const readInvestments = (id: string): InvestmentStore =>
   readState<InvestmentStore>(id, { portfolio: null, fixedIncome: [], ppr: [] });
-/** The build-time USD→MXN rate the Investments editor was given (`data-usd-mxn`); null when none was fetched. */
-export const readUsdMxn = (id: string): Maybe => {
-  const raw = document.querySelector<HTMLElement>(`[data-flow-id="${id}"]`)?.dataset.usdMxn;
-  return raw ? Number(raw) : null;
-};

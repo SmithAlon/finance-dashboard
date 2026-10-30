@@ -1,6 +1,6 @@
 ---
 import TabPanel from "./TabPanel.astro";
-import { mxn, pct } from "../lib/format";
+import { fmt, pct } from "../lib/format";
 import { tones } from "../lib/tone";
 
 interface Props {
@@ -37,10 +37,10 @@ const sides = [
     <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
       <div class="grid gap-0.5">
         <span id="balance-total" class="label">Monthly balance · incomes − expenses</span>
-        <b class="mono text-[40px] leading-tight" data-balance aria-live="polite">{mxn(balance)}</b>
+        <b class="mono text-[40px] leading-tight" data-balance aria-live="polite">{fmt(balance)}</b>
       </div>
       <span class="text-ink-2 text-[13px]">
-        <b class="mono text-ink" data-annual>{mxn(balance * 12)}</b> per year ·{" "}
+        <b class="mono text-ink" data-annual>{fmt(balance * 12)}</b> per year ·{" "}
         <b class="mono text-ink" data-rate>{pct(income ? balance / income : 0)}</b> kept
       </span>
     </div>
@@ -58,7 +58,7 @@ const sides = [
                 </span>
                 {s.label}
               </span>
-              <b class="mono" data-side-total={s.id}>{mxn(s.value)}</b>
+              <b class="mono" data-side-total={s.id}>{fmt(s.value)}</b>
             </span>
             <span class="block h-2.5 rounded-full bg-surface-2 overflow-hidden">
               <i class:list={["block h-full rounded-full", s.bar]} data-side-bar={s.id} style={`width:${(s.value / scale) * 100}%`} />
@@ -98,7 +98,7 @@ const sides = [
 </div>
 
 <script>
-  import { mxn, pct } from "../lib/format";
+  import { fmt, pct } from "../lib/format";
   import { toAnnual, toMonthly } from "../lib/income";
   import { readFlow } from "../lib/flows";
 
@@ -115,12 +115,12 @@ const sides = [
       const spend = total(root.dataset.out!);
       const balance = income - spend;
       const scale = Math.max(income, spend) || 1;
-      q("[data-balance]").textContent = (balance < 0 ? "−" : "") + mxn(Math.abs(balance));
+      q("[data-balance]").textContent = (balance < 0 ? "−" : "") + fmt(Math.abs(balance));
       const year = annual(root.dataset.in!) - annual(root.dataset.out!);
-      q("[data-annual]").textContent = (year < 0 ? "−" : "") + mxn(Math.abs(year));
+      q("[data-annual]").textContent = (year < 0 ? "−" : "") + fmt(Math.abs(year));
       q("[data-rate]").textContent = pct(income ? balance / income : 0);
       for (const [id, v] of [["inflows", income], ["outflows", spend]] as const) {
-        q(`[data-side-total="${id}"]`).textContent = mxn(v);
+        q(`[data-side-total="${id}"]`).textContent = fmt(v);
         q(`[data-side-bar="${id}"]`).style.width = (v / scale) * 100 + "%";
       }
       hero.classList.remove(...(balance < 0 ? pos : neg));

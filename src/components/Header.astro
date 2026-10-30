@@ -1,13 +1,56 @@
 ---
+// The page title and the display-currency picker. Changing the currency reloads the page so every
+// figure, server-rendered or live, is shown in it. Its script also refreshes the exchange rates.
+import { currencies } from "../lib/currency";
+
 interface Props {
   asOf: string;
 }
 const { asOf } = Astro.props;
 ---
-<header class="flex justify-between items-end gap-4 flex-wrap mb-2">
+<header data-page-header class="flex justify-between items-end gap-4 flex-wrap mb-2">
   <div>
-    <p class="mb-1 text-ink-2 text-[13px]">Personal finances · MXN</p>
+    <p class="mb-1 text-ink-2 text-[13px]">Personal finances</p>
     <h1 class="text-[clamp(28px,5vw,40px)]">Take control, grow, enjoy.</h1>
   </div>
-  <p class="text-ink-3 text-[13px] tabular-nums">As of {asOf}</p>
+  <div class="grid gap-1 sm:justify-items-end">
+    <label class="flex items-center gap-2 text-[13px] text-ink-2">
+      Show amounts in
+      <select data-display-currency class="field w-auto h-8 pr-8">
+        {currencies.map((c) => <option value={c.id}>{c.id} · {c.label}</option>)}
+      </select>
+    </label>
+    <p class="text-ink-3 text-[12px] max-w-[44ch] sm:text-right" data-currency-note hidden></p>
+    <p class="text-ink-3 text-[13px] tabular-nums">As of {asOf}</p>
+  </div>
 </header>
+
+<script>
+  import type { Currency } from "../data/types";
+  import { chosenCurrency, rates, refreshRates, setDisplayCurrency, shownCurrency } from "../lib/display";
+  import { BASE } from "../lib/currency";
+
+  document.querySelectorAll<HTMLElement>("[data-page-header]").forEach((root) => {
+    const select = root.querySelector<HTMLSelectElement>("[data-display-currency]")!;
+    const note = root.querySelector<HTMLElement>("[data-currency-note]")!;
+    const render = () => {
+      const chosen = chosenCurrency();
+      select.value = chosen;
+      const date = rates()?.date;
+      note.textContent =
+        shownCurrency() !== chosen
+          ? `No ${chosen} exchange rate is available yet, so amounts are shown in ${BASE}.`
+          : chosen !== BASE && date
+            ? `Amounts are entered in ${BASE} and shown in ${chosen} at the ECB rate of ${date}.`
+            : "";
+      note.hidden = !note.textContent;
+    };
+    select.addEventListener("change", () => {
+      setDisplayCurrency(select.value as Currency);
+      location.reload();
+    });
+    document.addEventListener("ratechange", render);
+    render();
+    refreshRates();
+  });
+</script>

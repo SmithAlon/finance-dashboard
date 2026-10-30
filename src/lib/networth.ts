@@ -4,7 +4,7 @@
 
 import type { AccountsSummary } from './accounts';
 import type { CreditSummary } from './credit';
-import { mxn } from './format';
+import { fmt } from './format';
 import type { InvestmentSummary } from './investments';
 
 export interface NetWorth {
@@ -30,9 +30,9 @@ export function liquidNetWorth(acc: AccountsSummary, inv: InvestmentSummary, deb
   ];
   if (gaps.length) return { value: null, note: `Can't compute: ${gaps.join(' · ')}` };
 
-  const parts = `${mxn(acc.known)} in accounts` + (rows ? ` + ${mxn(invested)} invested` : '');
+  const parts = `${fmt(acc.known)} in accounts` + (rows ? ` + ${fmt(invested)} invested` : '');
   return {
     value: acc.known + invested - debt.owedKnown,
-    note: owing ? `${parts} − ${mxn(debt.owedKnown)} owed` : `${parts} · no credit added`,
+    note: owing ? `${parts} − ${fmt(debt.owedKnown)} owed` : `${parts} · no credit added`,
   };
 }
