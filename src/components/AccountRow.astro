@@ -1,0 +1,44 @@
+---
+import type { Maybe } from '../data/types';
+
+interface Props {
+  name?: string;
+  institution?: string;
+  amount?: Maybe;
+}
+const { name = '', institution = '', amount = null } = Astro.props;
+---
+<li
+  data-row
+  class="grid grid-cols-[1fr_140px] md:grid-cols-[1fr_1fr_150px_64px_32px] gap-2 items-center py-2 border-b border-line last:border-b-0"
+>
+  <input
+    data-f="name"
+    class="w-full min-w-0 h-9 bg-transparent border border-transparent rounded-lg px-0 text-[13px] text-ink placeholder:text-ink-3 transition-colors focus:outline-none focus:bg-surface-2 focus:border-brand focus:ring-1 focus:ring-brand focus:px-3"
+    type="text"
+    placeholder="Account, e.g. Checking"
+    aria-label="Account name"
+    value={name}
+  />
+  <button
+    data-remove
+    type="button"
+    class="justify-self-end md:order-last size-8 rounded-lg text-ink-2 hover:text-outflow hover:bg-outflow/10 transition-colors cursor-pointer"
+    aria-label="Remove account"
+    title="Remove"
+  >
+    ×
+  </button>
+  <input data-f="institution" class="field" type="text" placeholder="Bank" aria-label="Bank or institution" value={institution} />
+  <input
+    data-f="amount"
+    class="field mono text-right"
+    type="number"
+    inputmode="decimal"
+    step="any"
+    placeholder="Not entered"
+    aria-label="Balance today (MXN)"
+    value={amount ?? ''}
+  />
+  <span data-share class="hidden md:block mono text-right text-[13px] text-ink-2">—</span>
+</li>

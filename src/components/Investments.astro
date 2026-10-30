@@ -13,12 +13,14 @@ import { sliceFills, tones } from "../lib/tone";
 interface Props {
   /** `data-flow-id` and localStorage prefix. */
   id: string;
-  /** Starting store, portfolio included; restored on reset. */
+  /** What a first visit starts with (nothing invested). */
   seed: InvestmentStore;
+  /** The demo store, sample GBM portfolio included, loaded instead in demo mode. */
+  demo: InvestmentStore;
   /** Build-time USD→MXN rate for a dollar portfolio. */
   prices: PriceFeed;
 }
-const { id, seed, prices } = Astro.props;
+const { id, seed, demo, prices } = Astro.props;
 const buckets: { id: BucketId; tab: InvestTabId; noun: string; hint: string }[] = [
   {
     id: "portfolio", tab: "invest-portfolio", noun: "position",
@@ -41,6 +43,7 @@ const R = 15.9155;
   data-key={`finance:${id}:v4`}
   data-old-keys={JSON.stringify([`finance:${id}:v3`, `finance:${id}:v2`])}
   data-seed={JSON.stringify(seed)}
+  data-demo={JSON.stringify(demo)}
   data-usd-mxn={prices.usdMxn?.rate ?? ""}
   data-fx-date={prices.usdMxn?.date ?? ""}
   data-fills={JSON.stringify(sliceFills)}
@@ -56,7 +59,7 @@ const R = 15.9155;
     </div>
     <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
       <p class="text-ink-2 text-[13px]" data-total-note>Nothing added yet</p>
-      <button data-reset type="button" class={addBtn}>Reset to saved profile</button>
+      <button data-reset type="button" class={addBtn}>Reset</button>
     </div>
 
     <p class="mt-5 mb-3 text-[13px]" data-chart-takeaway aria-live="polite">Import your GBM portfolio to see what you are invested in.</p>
@@ -191,6 +194,7 @@ const R = 15.9155;
     allocationTakeaway, blanks, gainText, investedNote, migratePpr, portfolioNote, summarizeInvestments, type ManualBucketId, type Slice, type SliceFill,
   } from "../lib/investments";
   import { money, mxn, pct, shareCount } from "../lib/format";
+  import { confirmReset, seedOf } from "../lib/mode";
 
   const MANUAL: ManualBucketId[] = ["fixedIncome", "ppr"];
   const TEXT = new Set(["name", "kind", "frequency"]);
@@ -200,7 +204,7 @@ const R = 15.9155;
 
   const init = (root: HTMLElement) => {
     const KEY = root.dataset.key!;
-    const seed: InvestmentStore = JSON.parse(root.dataset.seed!);
+    const seed = seedOf<InvestmentStore>(root);
     const usdMxn: Maybe = root.dataset.usdMxn ? Number(root.dataset.usdMxn) : null;
     const fxDate = root.dataset.fxDate;
     const fills: Record<SliceFill, { dot: string; stroke: string }> = JSON.parse(root.dataset.fills!);
@@ -432,6 +436,7 @@ const R = 15.9155;
       } else if (btn.matches("[data-remove]")) {
         btn.closest("[data-row]")!.remove();
       } else if (btn.matches("[data-reset]")) {
+        if (!confirmReset()) return;
         fill(seed);
         q("[data-import-error]").hidden = true;
         try {

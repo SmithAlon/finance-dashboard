@@ -1,0 +1,64 @@
+---
+// Above the headline: a short welcome on a first visit (nothing saved, no choice made yet) and a
+// banner while the demo data is loaded, so a fictional person's numbers are never mistaken for
+// the visitor's. Both start hidden; the script decides from localStorage.
+const primary =
+  "inline-flex items-center rounded-lg px-3.5 py-2 text-[13.5px] font-semibold bg-brand/12 text-brand ring-1 ring-brand/25 hover:bg-brand/20 transition-colors cursor-pointer";
+const secondary =
+  "inline-flex items-center rounded-lg px-3 py-2 text-[13.5px] font-medium text-brand hover:text-brand-hover hover:bg-brand/10 transition-colors cursor-pointer";
+const steps = [
+  "Incomes and expenses in Balance, at whatever frequency they arrive.",
+  "What each bank account holds in Accounts.",
+  "Cards and loans in Debt, and investments in Investments.",
+];
+---
+
+<div data-first-run class="contents">
+  <section data-welcome hidden class="card" aria-labelledby="welcome-title">
+    <h2 id="welcome-title" class="text-xl mb-1.5">Start with your own numbers</h2>
+    <p class="sub max-w-[62ch]">
+      Everything you type is saved in this browser only. There is no account and no server, and nothing about your
+      money is sent anywhere. Leave a figure blank when you don't know it: it shows as missing, never as $0.
+    </p>
+    <ul class="grid gap-1.5 text-[13.5px] mb-4">
+      {steps.map((s) => <li class="flex items-baseline"><span class="dot bg-ink-3" aria-hidden="true" />{s}</li>)}
+    </ul>
+    <div class="flex flex-wrap items-center gap-2">
+      <button data-start-own type="button" class={primary}>Enter my numbers</button>
+      <button data-load-demo type="button" class={secondary}>Load demo data</button>
+      <span class="text-ink-3 text-[12px]">The demo is a fictional person, to see how it works.</span>
+    </div>
+  </section>
+
+  <div
+    data-demo-banner
+    hidden
+    role="status"
+    class="rounded-xl border border-brand/30 bg-brand/8 px-4 py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-[13.5px]"
+  >
+    <p><b class="font-semibold">You're looking at demo data.</b> These are a fictional person's finances, not yours.</p>
+    <button data-start-blank type="button" class={secondary}>Start blank</button>
+  </div>
+</div>
+
+<script>
+  import { hasUserData, loadDemo, readMode, setMode, startBlank } from "../lib/mode";
+
+  document.querySelectorAll<HTMLElement>("[data-first-run]").forEach((root) => {
+    const q = (sel: string) => root.querySelector<HTMLElement>(sel)!;
+    let mode = readMode();
+    // Visitors from before this choice existed already have their own data saved.
+    if (!mode && hasUserData()) setMode((mode = "own"));
+    q("[data-welcome]").hidden = mode != null;
+    q("[data-demo-banner]").hidden = mode !== "demo";
+
+    q("[data-start-own]").addEventListener("click", () => {
+      setMode("own");
+      q("[data-welcome]").hidden = true;
+      document.getElementById("tab-balance")?.click();
+      document.querySelector<HTMLElement>("#panel-inflows [data-add]")?.focus();
+    });
+    q("[data-load-demo]").addEventListener("click", loadDemo);
+    q("[data-start-blank]").addEventListener("click", startBlank);
+  });
+</script>

@@ -1,26 +1,23 @@
 ---
 import type { ActionItem } from '../data/types';
-import { mxn } from '../lib/format';
 import ActionList from './ActionList.astro';
 
 interface Props {
-  /** `data-flow-id`s of the credit editor and the incomes form, read live. */
+  /** `data-flow-id`s of the credit editor, the incomes form and the accounts editor, read live. */
   credit: string;
   inflows: string;
-  /** What the accounts hold today. */
-  assets: number;
-  guaranteeDeposit: number;
+  accounts: string;
   actions: ActionItem[];
 }
-const { credit, inflows, assets, guaranteeDeposit, actions } = Astro.props;
+const { credit, inflows, accounts, actions } = Astro.props;
 
 const stats = [
   { id: 'owed', label: 'Owed on credit', value: '$0' },
   { id: 'dti', label: 'Owed ÷ monthly income', value: '0.0%' },
-  { id: 'deposit', label: 'Credit guarantee deposit', value: mxn(guaranteeDeposit) },
+  { id: 'deposit', label: 'Credit guarantee deposit', value: '$0' },
 ];
 ---
-<div class="card" data-debt-summary data-credit={credit} data-in={inflows} data-assets={assets}>
+<div class="card" data-debt-summary data-credit={credit} data-in={inflows} data-accounts={accounts}>
   <h2 class="text-xl mb-2">Debt</h2>
   <p class="sub" data-text aria-live="polite">No credit accounts added yet.</p>
   <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
@@ -40,13 +37,17 @@ const stats = [
 <script>
   import { mxn, pct } from '../lib/format';
   import { toMonthly } from '../lib/income';
-  import { readCredit, readFlow } from '../lib/flows';
+  import { readAccounts, readCredit, readFlow } from '../lib/flows';
+  import { guaranteeDeposit, summarizeAccounts } from '../lib/accounts';
   import { owedText, summarize } from '../lib/credit';
 
   document.querySelectorAll<HTMLElement>('[data-debt-summary]').forEach((root) => {
     const q = (sel: string) => root.querySelector<HTMLElement>(sel)!;
-    const assets = Number(root.dataset.assets);
     const render = () => {
+      const accounts = readAccounts(root.dataset.accounts!);
+      const assets = summarizeAccounts(accounts).total;
+      const deposit = guaranteeDeposit(accounts);
+      q('[data-stat=deposit]').textContent = deposit == null ? '$—' : mxn(deposit);
       const s = summarize(readCredit(root.dataset.credit!));
       const income = readFlow(root.dataset.in!).reduce((a, l) => a + toMonthly(l.amount ?? 0, l.freq), 0);
       const n = s.views.length;
@@ -57,8 +58,10 @@ const stats = [
         : !s.complete
           ? `${owedText(s)} so far. Liquid net worth can't be worked out until every balance is entered.`
           : s.owedKnown === 0
-            ? 'Nothing owed on any account. Liquid net worth equals what your accounts hold.'
-            : `What you owe brings liquid net worth from ${mxn(assets)} down to ${mxn(assets - s.owedKnown)}.`;
+            ? 'Nothing owed on any account. Liquid net worth is everything you hold.'
+            : assets == null
+              ? `${owedText(s)}. Enter every account balance to see what is left once it is paid.`
+              : `What you owe brings what your accounts hold from ${mxn(assets)} down to ${mxn(assets - s.owedKnown)}.`;
     };
     document.addEventListener('flowchange', render);
     render();

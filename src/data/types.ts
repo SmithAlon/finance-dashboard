@@ -101,10 +101,12 @@ export interface CreditStore {
   msi: MsiPlan[];
 }
 
-export interface Account extends Amounted {
+/** Cash the user holds in a bank or savings account, edited in the Accounts tab. */
+export interface Account {
   name: string;
   institution: string;
-  purpose: string;
+  /** Balance today; `null` until entered, never read as 0. */
+  amount: Maybe;
 }
 
 /** 50/30/20 shares of income; values are fractions that sum to 1. */

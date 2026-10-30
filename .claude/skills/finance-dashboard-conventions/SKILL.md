@@ -11,7 +11,9 @@ This project stays easy to change because each kind of decision has one home. Be
 
 | Decision | Home | Rule |
 |---|---|---|
-| Numbers and labels the user owns (incomes, outflows, accounts, credit, goals, action plan) | `src/data/finance.ts` | Single source of truth. Never hard-code an amount in a component. Everything derived is computed in `src/pages/index.astro` frontmatter. |
+| Demo numbers and the category lists (incomes, outflows, accounts, credit, goals, action plan) | `src/data/finance.ts` | Demo data only, loaded on request. Never hard-code an amount in a component. Everything derived is computed in `src/pages/index.astro` frontmatter. |
+| What a first visit starts with | `src/data/blank.ts` | Empty lists and a `null` starting cash. The server renders this state. |
+| Blank vs demo, and app-wide data actions | `src/lib/mode.ts` | `finance:mode:v1` (`demo` / `own` / unset = first visit), `seedOf(root)`, `confirmReset`, `loadDemo`, `startBlank`, `eraseAll`. |
 | Shape of that data | `src/data/types.ts` | Domain types only. |
 | Shapes computed for the UI (`Allocation`, `Tab`, `TabId`) | `src/types.ts` | View types only. Don't mix with domain types. |
 | Formatting and pure maths (`mxn`, `pct`, frequency to monthly/annual, credit status and payoff) | `src/lib/*.ts` | Pure functions, shared by server markup and client scripts. Don't re-implement `toLocaleString` inline. |
@@ -35,7 +37,9 @@ Component rules:
 - Client behaviour lives in a `<script>` at the bottom of the component that owns the markup, finds its root through a `data-*` attribute, and does nothing if the root is missing. Pass server data in as a `data-*` JSON attribute, not through `define:vars`, so the script stays bundled and typed.
 - Hook scripts to `data-*` attributes (`data-row`, `data-total`), never to Tailwind classes, so restyling cannot break behaviour.
 - Rows added by JS are cloned from a `<template>` that renders the same component as the server rows, so server and client markup cannot drift.
-- Persisted client state: one namespaced, versioned localStorage key per form (`finance:<id>:v2`, e.g. `finance:inflows:v2`; credit is `finance:credit:v3`), every access in try/catch, and a visible "reset to saved profile" that restores the `finance.ts` values. Bump the version when the stored shape changes.
+- Persisted client state: one namespaced, versioned localStorage key per form (`finance:<id>:v2`, e.g. `finance:inflows:v2`; credit is `finance:credit:v3`, accounts `finance:accounts:v1`), every access in try/catch. Bump the version when the stored shape changes, with a migration. Every key starts with `finance:` so backup and erase can find them.
+- First run: a visitor never sees the demo as if it were theirs. Each editor root carries a blank `data-seed` (rendered by the server) and the demo as `data-demo`; on load, stored data wins, else `seedOf(root)` picks by mode. A "Reset" button asks (`confirmReset`) and restores that seed. `FirstRun.astro` shows the welcome when no mode is set and nothing is saved (an older visitor with saved data is marked `own` silently) and a banner while in demo mode; `DataFooter.astro` holds Load demo data and Erase everything.
+- Accounts are an editor (`AccountsForm.astro` + `AccountRow.astro`, id `accounts`): name, institution, balance (`Maybe`). `readAccounts(id)` and `summarizeAccounts` / `guaranteeDeposit` in `src/lib/accounts.ts` feed the Headline, net worth and the Debt summary. No accounts, or one with no balance, makes liquid net worth "can't compute". The projection's starting cash may be blank: real capital is then "can't compute" and the chart shows only the change from $0.
 - Money is MXN, formatted with `mxn` (negatives get a true minus, "−$1,200"). Amounts that can be entered at different frequencies are stored with a frequency and converted to monthly for totals; annual figures use `toAnnual`, so a one-time amount counts once, not twelve times.
 - Charts: follow the `dataviz` skill. Emerald/rose fail deuteranopia separation (ΔE 5.6), so outflow bars are also striped and every value carries its sign; each chart has a one-sentence takeaway above it and a table or tooltip with the full names.
 
@@ -59,8 +63,8 @@ Non-negotiables:
 
 ## Known loose ends (do not "fix" silently, ask first)
 
-- `finance.ts` holds sample data for a fictional user; keep it free of any real person's numbers or names.
+- `finance.ts` holds demo data for a fictional user; keep it free of any real person's numbers, names or real holdings.
 - Both `package-lock.json` and `pnpm-lock.yaml` exist; use `npm` unless told otherwise.
 - The Investable surplus tab (50/30/20 split) was replaced by the Debt tab; `framework` remains in `finance.ts` unused.
-- Liquid net worth adds the account balances in `finance.ts` to the investments above; the projection's "Starting cash" is a separate, editable number. Keep real brokerage cash out of the accounts list, because the GBM portfolio already counts it.
+- Liquid net worth adds the Accounts tab's balances to the investments above; the projection's "Starting cash" is a separate, editable number. Keep real brokerage cash out of the accounts list, because the GBM portfolio already counts it.
 - The projection/goals section and its script were removed; `goals` and `defaults` remain in `finance.ts` for a future restore.

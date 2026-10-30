@@ -1,10 +1,12 @@
 ---
-import type { ExpenseCategory } from "../data/types";
+import type { ExpenseCategory, Maybe } from "../data/types";
 import { mxn } from "../lib/format";
 
 interface Props {
-  /** Default starting balance: what the accounts hold today. */
-  balance: number;
+  /** Default starting cash on a first visit: null (not entered). */
+  balance: Maybe;
+  /** Default starting cash in demo mode: what the demo accounts hold. */
+  demoBalance: Maybe;
   /** `data-flow-id`s of the forms the projection reads live. */
   inflows: string;
   outflows: string;
@@ -12,7 +14,7 @@ interface Props {
   /** Names for the expense groups in the month bridge. */
   expenseCategories: ExpenseCategory[];
 }
-const { balance, inflows, outflows, credit, expenseCategories } = Astro.props;
+const { balance, demoBalance, inflows, outflows, credit, expenseCategories } = Astro.props;
 const horizons = [6, 12, 24];
 const stats = [
   { id: "now", label: "Real capital today" },
@@ -28,6 +30,7 @@ const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
   data-debt-calc
   data-key="finance:debt:v1"
   data-seed={JSON.stringify({ balance, horizon: 12 })}
+  data-demo={JSON.stringify({ balance: demoBalance, horizon: 12 })}
   data-in={inflows}
   data-out={outflows}
   data-credit={credit}
@@ -41,7 +44,7 @@ const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
         type="button"
         class="rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-brand hover:text-brand-hover hover:bg-brand/10 transition-colors cursor-pointer"
       >
-        Reset to saved profile
+        Reset
       </button>
     </header>
     <p class="sub">
@@ -53,7 +56,7 @@ const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
     <div class="grid grid-cols-2 md:grid-cols-[200px_160px] gap-3 mb-4">
       <label class="grid gap-1">
         <span class="label">Starting cash</span>
-        <input data-balance class="field mono text-right" type="number" inputmode="decimal" step="any" value={balance} />
+        <input data-balance class="field mono text-right" type="number" inputmode="decimal" step="any" placeholder="Not entered" value={balance ?? ""} />
       </label>
       <label class="grid gap-1">
         <span class="label">Horizon</span>
@@ -68,7 +71,7 @@ const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
         stats.map((s) => (
           <div class="grid gap-0.5 content-start">
             <dt class="label" data-stat-label={s.id}>{s.label}</dt>
-            <dd class="mono text-xl" data-stat={s.id}>{mxn(balance)}</dd>
+            <dd class="mono text-xl" data-stat={s.id}>{balance == null ? "—" : mxn(balance)}</dd>
             <dd class="text-ink-2 text-[12px]" data-stat-note={s.id} />
           </div>
         ))
@@ -149,8 +152,9 @@ const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
   import { mxn } from "../lib/format";
   import { project, type MonthProjection } from "../lib/projection";
   import { readCredit, readFlow } from "../lib/flows";
+  import { confirmReset, seedOf } from "../lib/mode";
 
-  type Saved = { balance: number; horizon: number };
+  type Saved = { balance: number | null; horizon: number };
   type Step = { label: string; amount: number; kind: "total" | "in" | "out" | "credit"; detail?: string };
 
   const UNKNOWN_PX = 14; // a "not entered" balance: a fixed dashed box, never a $0 bar
@@ -169,7 +173,6 @@ const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
 
   const init = (root: HTMLElement) => {
     const KEY = root.dataset.key!;
-    const seed: Saved = JSON.parse(root.dataset.seed!);
     const categories: Record<string, string> = JSON.parse(root.dataset.categories!);
     const q = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
     const balanceIn = q<HTMLInputElement>("[data-balance]");
@@ -192,11 +195,13 @@ const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
       if (text) e.textContent = text;
       return e;
     };
+    /** Starting cash as typed; null when the field is blank (unknown, not 0). */
+    const startCash = () => (balanceIn.value === "" ? null : Number(balanceIn.value) || 0);
     const missingText = (n: number) => `${n} ${n === 1 ? "balance" : "balances"} not entered`;
 
     const save = () => {
       try {
-        localStorage.setItem(KEY, JSON.stringify({ balance: Number(balanceIn.value) || 0, horizon: Number(horizonIn.value) }));
+        localStorage.setItem(KEY, JSON.stringify({ balance: startCash(), horizon: Number(horizonIn.value) }));
       } catch {}
     };
 
@@ -342,7 +347,9 @@ const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
     };
 
     const render = () => {
-      const start = Number(balanceIn.value) || 0;
+      // Unknown starting cash still projects the month-to-month change (from $0), but no real capital.
+      const known = startCash() != null;
+      const start = startCash() ?? 0;
       const credit = readCredit(root.dataset.credit!);
       months = project(start, Number(horizonIn.value), readFlow(root.dataset.in!), readFlow(root.dataset.out!), credit);
       if (selected >= months.length) selected = 0;
@@ -355,7 +362,11 @@ const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
       const owedToday = credit.accounts.map((a) => (a.type === "card" ? a.currentBalance : a.remainingBalance));
       const unknownNow = owedToday.filter((o) => o == null).length;
       const knownNow = owedToday.reduce<number>((s, o) => s + (o ?? 0), 0);
-      stat("now", unknownNow ? "Can't compute" : mxn(start - knownNow), unknownNow ? missingText(unknownNow) : "");
+      stat(
+        "now",
+        !known || unknownNow ? "Can't compute" : mxn(start - knownNow),
+        !known ? "starting cash not entered" : unknownNow ? missingText(unknownNow) : "",
+      );
       stat("debt", unknownNow ? "$—" : mxn(knownNow), unknownNow ? `${mxn(knownNow)} known · ${missingText(unknownNow)}` : names.length ? "" : "No accounts added");
       const freeAt = months.findIndex((p) => !p.unknown && p.debtKnown < 0.5);
       stat(
@@ -364,15 +375,22 @@ const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
         unknownNow ? "needs every balance" : "",
       );
       q('[data-stat-label="end"]').textContent = `Real capital, ${endName}`;
-      stat("end", last.capital == null ? "Can't compute" : mxn(last.capital), last.capital == null ? missingText(last.unknown) : "");
+      stat(
+        "end",
+        !known || last.capital == null ? "Can't compute" : mxn(last.capital),
+        !known ? "starting cash not entered" : last.capital == null ? missingText(last.unknown) : "",
+      );
 
       // Takeaway above the chart.
       const cashMove = `Cash ${last.closing >= first.opening ? "grows" : "falls"} from ${mxn(first.opening)} to ${mxn(last.closing)} by ${endName}`;
-      q("[data-have-takeaway]").textContent = !names.length
+      const prefix = known ? "" : "Starting cash isn't entered, so the chart starts at $0 and shows only the change. ";
+      q("[data-have-takeaway]").textContent = prefix + (!names.length
         ? `${cashMove}. No cards or loans are entered, so nothing is shown below zero.`
         : last.unknown
           ? `${cashMove}; what you owe can't be charted until ${last.unknown === 1 ? "1 more balance is" : `${last.unknown} more balances are`} entered.`
-          : `${cashMove} while what you owe ${last.debtKnown <= knownNow ? "falls" : "grows"} from ${mxn(knownNow)} to ${mxn(last.debtKnown)}, leaving ${mxn(last.capital!)} of real capital.`;
+          : known
+            ? `${cashMove} while what you owe ${last.debtKnown <= knownNow ? "falls" : "grows"} from ${mxn(knownNow)} to ${mxn(last.debtKnown)}, leaving ${mxn(last.capital!)} of real capital.`
+            : `${cashMove} while what you owe ${last.debtKnown <= knownNow ? "falls" : "grows"} from ${mxn(knownNow)} to ${mxn(last.debtKnown)}.`);
 
       // Legend: cash, each account (direct names), not-entered, real capital.
       const legend = q("[data-legend]");
@@ -389,7 +407,7 @@ const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
         li.append(el("span", "inline-block size-3 rounded-[3px] mr-2 shrink-0 border border-dashed border-outflow"), "Balance not entered");
         legend.append(li);
       }
-      if (!first.unknown) {
+      if (known && !first.unknown) {
         const li = el("li", "flex items-center");
         li.append(el("span", "inline-block w-4 mr-2 border-t-2 border-ink"), "Real capital");
         legend.append(li);
@@ -442,7 +460,7 @@ const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
             y += h + GAP;
           }
         });
-        if (p.capital != null) {
+        if (known && p.capital != null) {
           const dot = el("span", "absolute left-1/2 size-2 -ml-1 -mt-1 rounded-full bg-ink ring-2 ring-surface z-20");
           dot.style.top = yOf(p.capital) + "px";
           marks.append(dot);
@@ -480,21 +498,24 @@ const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
       select(selected);
     };
 
+    const apply = (s: Saved) => {
+      balanceIn.value = s.balance == null ? "" : String(s.balance);
+      horizonIn.value = String(s.horizon);
+    };
+    let saved = seedOf<Saved>(root);
     try {
       const stored: Saved | null = JSON.parse(localStorage.getItem(KEY) ?? "null");
-      if (stored) {
-        balanceIn.value = String(stored.balance);
-        horizonIn.value = String(stored.horizon);
-      }
+      if (stored) saved = stored;
     } catch {}
+    apply(saved);
 
     root.addEventListener("input", () => {
       save();
       render();
     });
     q("[data-reset]").addEventListener("click", () => {
-      balanceIn.value = String(seed.balance);
-      horizonIn.value = String(seed.horizon);
+      if (!confirmReset()) return;
+      apply(seedOf<Saved>(root));
       try {
         localStorage.removeItem(KEY);
       } catch {}

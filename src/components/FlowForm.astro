@@ -16,8 +16,10 @@ interface Props {
   /** Tone of the total card. */
   tone: Tone;
   categories: FlowCategory[];
-  /** Starting rows (monthly amounts); restored whenever the form is reset. */
+  /** Rows a first visit starts with (monthly amounts). */
   items: CategorizedFlowItem[];
+  /** The demo rows, loaded instead in demo mode. */
+  demo?: CategorizedFlowItem[];
   /** Older key whose rows (grouped by category id) are migrated on first load. */
   legacyKey?: string;
   /** Column heading for the amount, e.g. "Payment". */
@@ -32,16 +34,13 @@ const {
   tone,
   categories,
   items,
+  demo = [],
   legacyKey,
   amountLabel = "Amount",
 } = Astro.props;
 
-const seed = items.map((i) => ({
-  label: i.label,
-  amount: i.amount,
-  freq: "month",
-  category: i.category,
-}));
+const asRows = (xs: CategorizedFlowItem[]) =>
+  xs.map((i) => ({ label: i.label, amount: i.amount, freq: "month", category: i.category }));
 const subtotal = (cat: string) =>
   items.filter((i) => i.category === cat).reduce((a, i) => a + i.amount, 0);
 const total = items.reduce((a, i) => a + i.amount, 0);
@@ -53,7 +52,8 @@ const total = items.reduce((a, i) => a + i.amount, 0);
   data-flow-id={id}
   data-key={`finance:${id}:v2`}
   data-legacy-key={legacyKey}
-  data-seed={JSON.stringify(seed)}
+  data-seed={JSON.stringify(asRows(items))}
+  data-demo={JSON.stringify(asRows(demo))}
 >
   <section class="card" aria-labelledby={`${id}-sources`}>
     <header class="flex items-center justify-between gap-3 mb-1.5">
@@ -161,6 +161,7 @@ const total = items.reduce((a, i) => a + i.amount, 0);
   import { toAnnual, toMonthly } from "../lib/income";
   import { mxn, pct } from "../lib/format";
   import type { Frequency } from "../data/types";
+  import { confirmReset, seedOf } from "../lib/mode";
 
   type Row = {
     label: string;
@@ -174,7 +175,6 @@ const total = items.reduce((a, i) => a + i.amount, 0);
     const OLD_KEY = root.dataset.legacyKey;
     const tpl = root.querySelector<HTMLTemplateElement>("[data-row-template]")!;
     const list = root.querySelector<HTMLElement>("[data-rows]")!;
-    const seed: Row[] = JSON.parse(root.dataset.seed!);
     const q = <T extends Element = HTMLElement>(el: ParentNode, sel: string) =>
       el.querySelector<T>(sel)!;
     const catIds = [...root.querySelectorAll<HTMLElement>("[data-bar]")].map(
@@ -248,16 +248,16 @@ const total = items.reduce((a, i) => a + i.amount, 0);
 
     try {
       const stored = JSON.parse(localStorage.getItem(KEY) ?? "null");
+      const old = OLD_KEY ? JSON.parse(localStorage.getItem(OLD_KEY) ?? "null") : null;
       if (Array.isArray(stored)) fill(stored);
-      else if (OLD_KEY) {
+      else if (!old || typeof old !== "object") fill(seedOf<Row[]>(root));
+      else {
         // The legacy shape stored rows grouped by category id; flatten them.
-        const old = JSON.parse(localStorage.getItem(OLD_KEY) ?? "null");
-        if (old && typeof old === "object")
-          fill(
-            Object.entries(old).flatMap(([category, rows]) =>
-              (rows as Row[]).map((r) => ({ ...r, category })),
-            ),
-          );
+        fill(
+          Object.entries(old).flatMap(([category, rows]) =>
+            (rows as Row[]).map((r) => ({ ...r, category })),
+          ),
+        );
       }
     } catch {}
     recalc();
@@ -271,7 +271,8 @@ const total = items.reduce((a, i) => a + i.amount, 0);
       } else if (btn.matches("[data-remove]")) {
         btn.closest("[data-row]")!.remove();
       } else if (btn.matches("[data-reset]")) {
-        fill(seed);
+        if (!confirmReset()) return;
+        fill(seedOf<Row[]>(root));
         try {
           localStorage.removeItem(KEY);
           if (OLD_KEY) localStorage.removeItem(OLD_KEY);

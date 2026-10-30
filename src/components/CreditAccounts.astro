@@ -13,12 +13,14 @@ import { tones } from "../lib/tone";
 interface Props {
   /** `data-flow-id` and localStorage prefix. */
   id: string;
-  /** Starting accounts; restored on reset. */
+  /** What a first visit starts with (no accounts). */
   seed: CreditStore;
+  /** The demo accounts, loaded instead in demo mode. */
+  demo: CreditStore;
   /** Key of the old flat credit list, migrated on first load. */
   legacyKey?: string;
 }
-const { id, seed, legacyKey } = Astro.props;
+const { id, seed, demo, legacyKey } = Astro.props;
 const views: { id: CreditTabId; label: string }[] = [
   { id: "credit-month", label: "This month" },
   { id: "credit-setup", label: "Card setup" },
@@ -34,6 +36,7 @@ const addBtn =
   data-key={`finance:${id}:v3`}
   data-legacy-key={legacyKey}
   data-seed={JSON.stringify(seed)}
+  data-demo={JSON.stringify(demo)}
   data-badges={JSON.stringify({
     free: tones.inflow.badge,
     costing: tones.outflow.badge,
@@ -45,7 +48,7 @@ const addBtn =
   <section class="card" aria-labelledby={`${id}-title`}>
     <header class="flex flex-wrap items-start justify-between gap-3 mb-1.5">
       <h2 id={`${id}-title`} class="text-2xl">Credit cards & loans</h2>
-      <button data-reset type="button" class={addBtn}>Reset to saved profile</button>
+      <button data-reset type="button" class={addBtn}>Reset</button>
     </header>
     <p class="sub">
       Set each card or loan up once, then update what you owe when a statement arrives. If you don't know a balance,
@@ -178,6 +181,7 @@ const addBtn =
     type LegacyCreditRow,
   } from "../lib/credit";
   import { mxn } from "../lib/format";
+  import { confirmReset, seedOf } from "../lib/mode";
 
   const TEXT = new Set(["issuer", "issuerOther", "nickname", "type", "balanceUpdatedAt", "endDate", "merchant"]);
   const DAYS = new Set(["dueDay", "cutoffDay", "monthsRemaining"]);
@@ -187,7 +191,6 @@ const addBtn =
     const KEY = root.dataset.key!;
     const OLD_KEY = root.dataset.legacyKey;
     const NOTES_KEY = KEY + ":migration";
-    const seed: CreditStore = JSON.parse(root.dataset.seed!);
     const badges: Record<CreditStatus, string> = JSON.parse(root.dataset.badges!);
     const q = <T extends Element = HTMLElement>(el: ParentNode, sel: string) => el.querySelector<T>(sel)!;
     const list = q(root, "[data-accounts]");
@@ -343,7 +346,7 @@ const addBtn =
     };
 
     // Load: the saved v3 store, else migrate the old flat list once, else the seed.
-    let store = seed;
+    let store = seedOf<CreditStore>(root);
     try {
       const stored = JSON.parse(localStorage.getItem(KEY) ?? "null");
       if (stored && Array.isArray(stored.accounts)) store = stored;
@@ -395,7 +398,8 @@ const addBtn =
         } catch {}
         return;
       } else if (btn.matches("[data-reset]")) {
-        fill(seed);
+        if (!confirmReset()) return;
+        fill(seedOf<CreditStore>(root));
         try {
           localStorage.removeItem(KEY);
           if (OLD_KEY) localStorage.removeItem(OLD_KEY);
