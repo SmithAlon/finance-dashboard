@@ -1,13 +1,48 @@
 ---
-// The page footer: what can be done with the data saved in this browser.
+// The page footer: what can be done with the data saved in this browser. Backups are the stand-in
+// for sync: export here, import in another browser. Import asks before it replaces anything.
 const btn =
   "inline-flex items-center rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-brand hover:text-brand-hover hover:bg-brand/10 transition-colors cursor-pointer";
+const primary =
+  "inline-flex items-center rounded-lg px-3 py-1.5 text-[13px] font-semibold bg-brand/12 text-brand ring-1 ring-brand/25 hover:bg-brand/20 transition-colors cursor-pointer";
 const danger =
   "inline-flex items-center rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-ink-2 hover:text-outflow hover:bg-outflow/10 transition-colors cursor-pointer";
 ---
 
 <footer data-data-footer class="mt-6 pt-5 border-t border-line grid gap-3 text-[13px]" aria-labelledby="data-footer-title">
   <h2 id="data-footer-title" class="label">Your data in this browser</h2>
+  <p class="text-ink-2 max-w-[70ch]">
+    There is no sync between devices. To keep a copy, or to move to another browser or phone, export a backup file
+    and import it there. Keep the file private: without a passphrase, anyone who opens it can read your figures.
+  </p>
+
+  <div class="flex flex-wrap items-end gap-x-3 gap-y-2">
+    <label class="grid gap-1 w-full sm:w-56">
+      <span class="label">Passphrase (optional)</span>
+      <input data-pass class="field" type="password" autocomplete="new-password" placeholder="Leave blank for none" />
+    </label>
+    <button data-export type="button" class={primary}>Export backup</button>
+    <label class:list={[btn, "focus-within:outline-2 focus-within:outline-brand"]}>
+      Import backup
+      <input data-import type="file" accept=".json,application/json" class="sr-only" />
+    </label>
+  </div>
+  <p data-message hidden role="status" class="text-ink-2"></p>
+  <p data-error hidden role="alert" class="text-outflow"></p>
+
+  <section data-confirm hidden class="rounded-xl border border-line bg-surface p-4 grid gap-3" aria-labelledby="import-confirm-title">
+    <h3 id="import-confirm-title" class="font-semibold text-[14px]">Replace what is saved in this browser?</h3>
+    <p class="text-ink-2" data-summary></p>
+    <label data-unlock hidden class="grid gap-1 w-full sm:w-64">
+      <span class="label">This backup's passphrase</span>
+      <input data-import-pass class="field" type="password" autocomplete="off" />
+    </label>
+    <div class="flex flex-wrap gap-2">
+      <button data-apply type="button" class={primary}>Replace my data</button>
+      <button data-cancel type="button" class={btn}>Cancel</button>
+    </div>
+  </section>
+
   <div class="flex flex-wrap items-center gap-1 -ml-2.5">
     <button data-load-demo type="button" class={btn}>Load demo data</button>
     <button data-erase type="button" class={danger}>Erase everything</button>
@@ -15,10 +50,84 @@ const danger =
 </footer>
 
 <script>
-  import { eraseAll, loadDemo } from "../lib/mode";
+  import {
+    BackupError, buildBackup, decryptBackup, describeKeys, encryptBackup, isEncrypted, parseBackup, type Backup, type Keys,
+  } from "../lib/backup";
+  import { appKeys, clearAppData, eraseAll, loadDemo } from "../lib/mode";
 
   document.querySelectorAll<HTMLElement>("[data-data-footer]").forEach((root) => {
-    root.querySelector("[data-load-demo]")!.addEventListener("click", loadDemo);
-    root.querySelector("[data-erase]")!.addEventListener("click", eraseAll);
+    const q = <T extends HTMLElement = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
+    const say = (text: string, error = false) => {
+      q("[data-message]").hidden = error || !text;
+      q("[data-error]").hidden = !error || !text;
+      q(error ? "[data-error]" : "[data-message]").textContent = text;
+    };
+    const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    let pending: Backup | null = null;
+
+    q("[data-export]").addEventListener("click", async () => {
+      const keys: Keys = {};
+      try {
+        for (const k of appKeys()) keys[k] = localStorage.getItem(k)!;
+      } catch {}
+      if (!Object.keys(keys).some((k) => k !== "finance:mode:v1")) return say("Nothing is saved in this browser yet, so there is nothing to back up.", true);
+      const pass = q<HTMLInputElement>("[data-pass]").value;
+      const plain = buildBackup(keys);
+      const file = pass ? await encryptBackup(plain, pass) : plain;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2)], { type: "application/json" }));
+      a.download = `finance-backup-${plain.exportedAt.slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      say(pass ? "Backup downloaded, encrypted. You'll need the passphrase to import it." : "Backup downloaded. Store it somewhere private.");
+    });
+
+    const closeConfirm = () => {
+      pending = null;
+      q("[data-confirm]").hidden = true;
+      q<HTMLInputElement>("[data-import-pass]").value = "";
+    };
+
+    const input = q<HTMLInputElement>("[data-import]");
+    input.addEventListener("change", async () => {
+      const file = input.files?.[0];
+      input.value = "";
+      closeConfirm();
+      if (!file) return;
+      try {
+        pending = parseBackup(await file.text());
+      } catch (e) {
+        return say(e instanceof BackupError ? e.message : `Couldn't read ${file.name}.`, true);
+      }
+      say("");
+      const locked = isEncrypted(pending);
+      q("[data-summary]").textContent =
+        `${file.name}, exported ${day(pending.exportedAt)}` +
+        (isEncrypted(pending) ? ", is encrypted." : `, holds: ${describeKeys(pending.keys)}.`) +
+        " Importing it replaces everything saved here, and the page reloads.";
+      q("[data-unlock]").hidden = !locked;
+      q("[data-confirm]").hidden = false;
+      q(locked ? "[data-import-pass]" : "[data-apply]").focus();
+    });
+
+    q("[data-cancel]").addEventListener("click", () => {
+      closeConfirm();
+      say("Import cancelled. Nothing was changed.");
+    });
+
+    q("[data-apply]").addEventListener("click", async () => {
+      if (!pending) return;
+      try {
+        const plain = isEncrypted(pending) ? await decryptBackup(pending, q<HTMLInputElement>("[data-import-pass]").value) : pending;
+        clearAppData();
+        for (const [k, v] of Object.entries(plain.keys)) localStorage.setItem(k, v);
+        location.reload();
+      } catch (e) {
+        say(e instanceof BackupError ? e.message : "Couldn't save the backup in this browser (storage may be full or blocked).", true);
+      }
+    });
+
+    q("[data-load-demo]").addEventListener("click", loadDemo);
+    q("[data-erase]").addEventListener("click", eraseAll);
   });
 </script>
