@@ -17,6 +17,8 @@ npm run preview  # serve dist/
 
 `npm run build` first refreshes the exchange-rate snapshot (`npm run prices`, ECB rates from the Frankfurter API). If that fails it keeps the last snapshot and the build still succeeds. In the browser, the page fetches fresher rates itself and falls back to the snapshot.
 
+To put it online for free, see [DEPLOY.md](DEPLOY.md).
+
 ## Make it yours
 
 - **Incomes, expenses, accounts:** type them in the page. They stay in your browser. **Erase everything** at the bottom of the page removes all of it.

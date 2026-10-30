@@ -8,7 +8,7 @@ A single-page personal finance dashboard (MXN) built with Astro 7 and Tailwind C
 
 ## Commands
 
-Use `npm` (both `package-lock.json` and `pnpm-lock.yaml` exist; npm is the default).
+Use `npm` (both `package-lock.json` and `pnpm-lock.yaml` exist; npm is the default, and both lockfiles install and build cleanly). On the maintainer's machine `npm` may be a shell alias for `pnpm`: to check `package-lock.json` the way CI and hosts do, call npm by its path (`$(dirname $(command -v node))/npm ci`).
 
 - `npm run dev`: dev server
 - `npm run prices`: refresh `src/data/prices.json`, the build-time snapshot of ECB exchange rates from Frankfurter (USD and MXN per EUR). The browser fetches fresher rates itself; the snapshot is the fallback. It also runs as `prebuild`; on failure it keeps the previous snapshot and never fails the build. Holdings and their prices come from the GBM CSV export (`src/data/gbm-portfolio.csv`, or imported in the Investments tab), not from a market feed.
@@ -29,6 +29,10 @@ There is no test suite or linter. To verify UI changes, build, serve over HTTP (
 - **Unknown ≠ zero:** an unentered balance is `null`. Totals that include one are marked partial, and real capital shows "can't compute". Never coerce it to 0.
 - **Client scripts** sit at the bottom of the component that owns the markup. They find their root and hooks through `data-*` attributes (never Tailwind classes) and receive server data as `data-*` JSON, not `define:vars`.
 - **Styling:** use only the semantic tokens and the `@utility` classes defined in `src/styles/global.css` (`card`, `field`, `label`, `mono`, `data-table`…). Don't use hex values or raw Tailwind palette colours in components. The theme is dark by default, with light mode via `prefers-color-scheme`.
+
+## Deploying
+
+See `DEPLOY.md`. The page may load nothing from another host except the exchange-rate API: fonts are self-hosted in `public/fonts`, scripts are never inlined (`assetsInlineLimit: 0`), and the Content-Security-Policy lives in both `public/_headers` and `src/layouts/Base.astro` (keep them identical). CI (`.github/workflows/build.yml`) builds every PR and fails on any other host in the page.
 
 ## Docs
 

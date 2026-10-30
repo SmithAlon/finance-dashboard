@@ -1,0 +1,19 @@
+# Security headers for Cloudflare Pages and Netlify (GitHub Pages ignores this file; the same
+# Content-Security-Policy is also set by a <meta> tag in src/layouts/Base.astro, minus
+# frame-ancestors, which only works as a header). Keep the two policies identical.
+# The only cross-origin request the app makes is for exchange rates (api.frankfurter.dev).
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.frankfurter.dev; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
+  Strict-Transport-Security: max-age=31536000
+
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable

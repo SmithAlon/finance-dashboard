@@ -1,0 +1,26 @@
+# Checks that the site builds on every pull request and push to main. Free for public
+# repositories; it deploys nothing and needs no secrets.
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Fetches the exchange-rate snapshot first; a failed fetch keeps the committed one.
+      - run: npm run build
+      - name: No third-party hosts in the page except the rates API
+        run: "! grep -oE 'https?://[a-z0-9.-]+' dist/index.html | grep -vE '^https://api\\.frankfurter\\.dev$|w3\\.org'"
