@@ -20,6 +20,8 @@ Product decisions that are not obvious from the code. Newest first. Update this 
 
 ## Open
 
+- **Two lockfiles.** `package-lock.json` (now in sync) and `pnpm-lock.yaml` both install and build. Keeping only one would make CI and hosts deterministic; which one is the maintainer's call.
+
 - **PPR tax deduction.** Needs annual income and the year's UMA; look the UMA up, don't guess. Decide whether it belongs in a yearly estimate rather than the monthly projection.
 - **Action plan.** The full list is in `actionPlan` but only the card-utilization step is rendered. Restore a section or drop the unused items.
 - **Goals.** The trip goal has no date and nothing records how much is already saved. Dropped for now.

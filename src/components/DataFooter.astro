@@ -12,8 +12,22 @@ const danger =
 <footer data-data-footer class="mt-6 pt-5 border-t border-line grid gap-3 text-[13px]" aria-labelledby="data-footer-title">
   <h2 id="data-footer-title" class="label">Your data in this browser</h2>
   <p class="text-ink-2 max-w-[70ch]">
-    There is no sync between devices. To keep a copy, or to move to another browser or phone, export a backup file
-    and import it there. Keep the file private: without a passphrase, anyone who opens it can read your figures.
+    <b class="font-semibold text-ink">Your data stays in your browser.</b> Everything you type is saved on this device,
+    in this browser only. There is no account, no server and no analytics, and nothing about your money is sent
+    anywhere. The page's one outside request asks Frankfurter for the European Central Bank's exchange rates, and it
+    carries none of your data. Clearing this site's data in your browser deletes your figures, so keep a backup.
+  </p>
+  <details class="text-ink-2 max-w-[70ch]">
+    <summary class="cursor-pointer w-fit text-ink font-medium">Known limitations</summary>
+    <ul class="list-disc pl-5 mt-1.5 grid gap-0.5">
+      <li>No sync: each browser keeps its own copy. Move it with Export and Import below.</li>
+      <li>A private window or another browser starts empty.</li>
+      <li>Rates are ECB reference rates via Frankfurter, once per working day, not your bank's rate or Banxico's FIX.</li>
+      <li>Cards, loans, fixed income and PPRs are in pesos only.</li>
+    </ul>
+  </details>
+  <p class="text-ink-2 max-w-[70ch]">
+    To keep a copy, or to move to another browser or phone, export a backup file and import it there. Keep the file private: without a passphrase, anyone who opens it can read your figures.
   </p>
 
   <div class="flex flex-wrap items-end gap-x-3 gap-y-2">

@@ -36,7 +36,7 @@ See `DEPLOY.md`. The page may load nothing from another host except the exchange
 
 ## Docs
 
-`README.md` is for users of the project; `docs/decisions.md` records product decisions and open items (update it when one changes). `src/data/finance.ts` and `gbm-portfolio.csv` are sample data for a fictional user: keep real numbers out of the repo. Licensed MIT.
+`README.md` is for users and contributors (with the known limitations), `CONTRIBUTING.md` holds the contribution rules, `DEPLOY.md` the hosting steps; `docs/decisions.md` records product decisions and open items (update it when one changes). `src/data/finance.ts` and `gbm-portfolio.csv` are sample data for a fictional user: keep real numbers out of the repo. Licensed MIT.
 
 ## Repo quirks
 
