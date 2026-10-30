@@ -36,7 +36,8 @@ const stats = [
 
 <script>
   import { dash, fmt, pct } from '../lib/format';
-  import { toMonthly } from '../lib/income';
+  import { flowTotals } from '../lib/projection';
+  import { rates } from '../lib/display';
   import { readAccounts, readCredit, readFlow } from '../lib/flows';
   import { guaranteeDeposit, summarizeAccounts } from '../lib/accounts';
   import { owedText, summarize } from '../lib/credit';
@@ -45,11 +46,11 @@ const stats = [
     const q = (sel: string) => root.querySelector<HTMLElement>(sel)!;
     const render = () => {
       const accounts = readAccounts(root.dataset.accounts!);
-      const assets = summarizeAccounts(accounts).total;
-      const deposit = guaranteeDeposit(accounts);
+      const assets = summarizeAccounts(accounts, rates()).total;
+      const deposit = guaranteeDeposit(accounts, rates());
       q('[data-stat=deposit]').textContent = deposit == null ? dash() : fmt(deposit);
       const s = summarize(readCredit(root.dataset.credit!));
-      const income = readFlow(root.dataset.in!).reduce((a, l) => a + toMonthly(l.amount ?? 0, l.freq), 0);
+      const income = flowTotals(readFlow(root.dataset.in!), rates()).monthly;
       const n = s.views.length;
       q('[data-stat=owed]').textContent = s.complete ? fmt(s.owedKnown) : dash();
       q('[data-stat=dti]').textContent = s.complete && income ? pct(s.owedKnown / income) : '—';

@@ -40,7 +40,7 @@ const {
 } = Astro.props;
 
 const asRows = (xs: CategorizedFlowItem[]) =>
-  xs.map((i) => ({ label: i.label, amount: i.amount, freq: "month", category: i.category }));
+  xs.map((i) => ({ label: i.label, amount: i.amount, freq: "month", category: i.category, currency: i.currency ?? "MXN" }));
 const subtotal = (cat: string) =>
   items.filter((i) => i.category === cat).reduce((a, i) => a + i.amount, 0);
 const total = items.reduce((a, i) => a + i.amount, 0);
@@ -66,9 +66,10 @@ const total = items.reduce((a, i) => a + i.amount, 0);
       }.
     </p>
 
-    <div class="hidden md:grid grid-cols-[1fr_150px_110px_130px_96px_32px] gap-2 label pb-1 border-b border-line">
+    <div class="hidden md:grid grid-cols-[1fr_150px_80px_110px_130px_96px_32px] gap-2 label pb-1 border-b border-line">
       <span>Source</span>
       <span>Type</span>
+      <span>Currency</span>
       <span class="text-right">{amountLabel}</span>
       <span>Frequency</span>
       <span class="text-right">Per month</span>
@@ -80,6 +81,7 @@ const total = items.reduce((a, i) => a + i.amount, 0);
             label={i.label}
             amount={i.amount}
             category={i.category}
+            currency={i.currency}
             categories={categories}
             noun={noun}
             placeholder={placeholder}
@@ -112,6 +114,7 @@ const total = items.reduce((a, i) => a + i.amount, 0);
         <b class="mono text-ink" data-annual>{fmt(total * 12)}</b> per year
       </span>
     </div>
+    <p data-partial hidden class="text-ink-2 text-[13px] mt-1"></p>
 
     <div
       class="flex h-3 rounded-full overflow-hidden gap-0.5 mt-4 mb-3 bg-surface-2"
@@ -159,8 +162,11 @@ const total = items.reduce((a, i) => a + i.amount, 0);
 
 <script>
   import { toAnnual, toMonthly } from "../lib/income";
-  import { fmt, pct } from "../lib/format";
-  import type { Frequency } from "../data/types";
+  import { dash, fmt, pct } from "../lib/format";
+  import type { Currency, Frequency } from "../data/types";
+  import { BASE } from "../lib/currency";
+  import { chosenCurrency, rates } from "../lib/display";
+  import { inBase } from "../lib/projection";
   import { confirmReset, seedOf } from "../lib/mode";
 
   type Row = {
@@ -168,6 +174,8 @@ const total = items.reduce((a, i) => a + i.amount, 0);
     amount: number | null;
     freq: Frequency;
     category: string;
+    /** Absent in rows saved before currencies existed: those are MXN. */
+    currency?: Currency;
   };
 
   const init = (root: HTMLElement) => {
@@ -188,6 +196,7 @@ const total = items.reduce((a, i) => a + i.amount, 0);
       amount: num(q<HTMLInputElement>(row, "[data-amount]").value),
       freq: q<HTMLSelectElement>(row, "[data-freq]").value as Frequency,
       category: q<HTMLSelectElement>(row, "[data-category]").value,
+      currency: q<HTMLSelectElement>(row, "[data-currency]").value as Currency,
     });
 
     const addRow = (r?: Row) => {
@@ -199,7 +208,8 @@ const total = items.reduce((a, i) => a + i.amount, 0);
         q<HTMLSelectElement>(row, "[data-freq]").value = r.freq;
         if (catIds.includes(r.category))
           q<HTMLSelectElement>(row, "[data-category]").value = r.category;
-      }
+        q<HTMLSelectElement>(row, "[data-currency]").value = r.currency ?? BASE;
+      } else q<HTMLSelectElement>(row, "[data-currency]").value = chosenCurrency();
       list.append(row);
       return row;
     };
@@ -214,19 +224,26 @@ const total = items.reduce((a, i) => a + i.amount, 0);
         catIds.map((id) => [id, 0]),
       );
       const rows = [...list.querySelectorAll<HTMLElement>("[data-row]")];
+      let noRate = 0;
       const state = rows.map((row) => {
         const r = readRow(row);
-        const monthly = toMonthly(r.amount ?? 0, r.freq);
-        q(row, "[data-monthly]").textContent = fmt(monthly);
-        totals[r.category] = (totals[r.category] ?? 0) + monthly;
+        // In pesos; a currency with no rate leaves the line out and the totals partial.
+        const monthly = inBase(r, toMonthly(r.amount ?? 0, r.freq), rates());
+        q(row, "[data-monthly]").textContent = monthly == null ? dash() : fmt(monthly);
+        if (monthly == null) noRate++;
+        else totals[r.category] = (totals[r.category] ?? 0) + monthly;
         return r;
       });
       const total = Object.values(totals).reduce((a, b) => a + b, 0);
-      const annual = state.reduce((a, r) => a + toAnnual(r.amount ?? 0, r.freq), 0);
+      const annual = state.reduce((a, r) => a + (inBase(r, toAnnual(r.amount ?? 0, r.freq), rates()) ?? 0), 0);
       q(root, "[data-empty]").hidden = rows.length > 0;
       q(root, "[data-total-inline]").textContent = fmt(total);
       q(root, "[data-total]").textContent = fmt(total);
       q(root, "[data-annual]").textContent = fmt(annual);
+      q(root, "[data-partial]").textContent = noRate
+        ? `Partial: ${noRate} ${noRate === 1 ? "line is" : "lines are"} in a currency with no exchange rate and left out.`
+        : "";
+      q(root, "[data-partial]").hidden = !noRate;
       for (const [id, sub] of Object.entries(totals)) {
         const share = total ? sub / total : 0;
         q(root, `[data-bar="${id}"]`).style.width = share * 100 + "%";

@@ -1,6 +1,7 @@
-import type { CreditStore, Frequency, Maybe } from '../data/types';
+import type { CreditStore, Currency, Frequency, Maybe, RateTable } from '../data/types';
 import { plansOf, schedule, summarize } from './credit';
-import { toMonthly } from './income';
+import { BASE, convert } from './currency';
+import { toAnnual, toMonthly } from './income';
 
 /** One line as the Flow forms store it. */
 export interface ProjectionLine {
@@ -8,6 +9,32 @@ export interface ProjectionLine {
   amount: number | null;
   freq: Frequency;
   category?: string;
+  /** Absent means MXN (saved before currencies existed). */
+  currency?: Currency;
+}
+
+/** `amount` of line `l`'s currency in pesos; null when that currency has no rate. */
+export const inBase = (l: ProjectionLine, amount: number, table: RateTable | null): Maybe =>
+  convert(amount, l.currency ?? BASE, BASE, table);
+
+/**
+ * A flow form's totals in pesos. A blank amount counts as nothing entered; a line whose currency
+ * has no rate is counted in `unknown` and left out, so the total is partial, never padded with 0.
+ */
+export function flowTotals(lines: ProjectionLine[], table: RateTable | null) {
+  let monthly = 0;
+  let annual = 0;
+  let unknown = 0;
+  for (const l of lines) {
+    const m = inBase(l, toMonthly(l.amount ?? 0, l.freq), table);
+    const y = inBase(l, toAnnual(l.amount ?? 0, l.freq), table);
+    if (m == null || y == null) unknown++;
+    else {
+      monthly += m;
+      annual += y;
+    }
+  }
+  return { monthly, annual, unknown };
 }
 
 export interface MonthEntry {
@@ -43,8 +70,9 @@ export interface MonthProjection {
 const sum = (xs: MonthEntry[]) => xs.reduce((a, x) => a + x.amount, 0);
 
 // A one-off line lands in the first month only; everything else repeats at its monthly equivalent.
-const inMonth = (l: ProjectionLine, m: number) =>
-  l.freq === 'once' ? (m === 0 ? (l.amount ?? 0) : 0) : toMonthly(l.amount ?? 0, l.freq);
+// In pesos; null when the line's currency has no rate (then it is left out of the projection).
+const inMonth = (l: ProjectionLine, m: number, table: RateTable | null) =>
+  inBase(l, l.freq === 'once' ? (m === 0 ? (l.amount ?? 0) : 0) : toMonthly(l.amount ?? 0, l.freq), table);
 
 /**
  * Month-by-month cash balance from a starting balance, the flow forms and the credit accounts.
@@ -57,14 +85,16 @@ export function project(
   inflows: ProjectionLine[],
   outflows: ProjectionLine[],
   credit: CreditStore,
+  table: RateTable | null,
   today = new Date(),
 ): MonthProjection[] {
   const names = summarize(credit, today).views.map((v) => v.name);
   const schedules = credit.accounts.map((a) => schedule(a, plansOf(credit, a), months, today));
   const flows = (ls: ProjectionLine[], m: number, fallback: string) =>
-    ls
-      .map((l) => ({ label: l.label.trim() || fallback, amount: inMonth(l, m), category: l.category }))
-      .filter((e) => e.amount > 0);
+    ls.flatMap((l) => {
+      const amount = inMonth(l, m, table);
+      return amount != null && amount > 0 ? [{ label: l.label.trim() || fallback, amount, category: l.category }] : [];
+    });
 
   const out: MonthProjection[] = [];
   let balance = start;

@@ -4,6 +4,7 @@
 import AccountRow from "./AccountRow.astro";
 import type { Account } from "../data/types";
 import { summarizeAccounts } from "../lib/accounts";
+import { rates } from "../lib/display";
 import { dash, fmt } from "../lib/format";
 
 interface Props {
@@ -15,7 +16,7 @@ interface Props {
   demo: Account[];
 }
 const { id, seed, demo } = Astro.props;
-const s = summarizeAccounts(seed);
+const s = summarizeAccounts(seed, rates());
 const addBtn =
   "inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-brand hover:text-brand-hover hover:bg-brand/10 transition-colors cursor-pointer";
 ---
@@ -38,14 +39,15 @@ const addBtn =
     $0. Brokerage cash is already counted in the GBM portfolio, so don't list it here.
   </p>
 
-  <div class="hidden md:grid grid-cols-[1fr_1fr_150px_64px_32px] gap-2 label pb-1 border-b border-line">
+  <div class="hidden md:grid grid-cols-[1fr_1fr_80px_150px_64px_32px] gap-2 label pb-1 border-b border-line">
     <span>Account</span>
     <span>Institution</span>
+    <span>Currency</span>
     <span class="text-right">Balance</span>
     <span class="text-right">Share</span>
   </div>
   <ul data-rows>
-    {seed.map((a) => <AccountRow name={a.name} institution={a.institution} amount={a.amount} />)}
+    {seed.map((a) => <AccountRow name={a.name} institution={a.institution} amount={a.amount} currency={a.currency} />)}
   </ul>
   <p data-empty class="text-ink-2 text-[13px] py-2" hidden={seed.length > 0}>No accounts yet.</p>
   <button data-add type="button" class:list={[addBtn, "mt-3 -ml-2.5"]}>+ Add account</button>
@@ -62,8 +64,10 @@ const addBtn =
 </section>
 
 <script>
-  import type { Account } from "../data/types";
-  import { summarizeAccounts } from "../lib/accounts";
+  import type { Account, Currency } from "../data/types";
+  import { accountInBase, summarizeAccounts } from "../lib/accounts";
+  import { BASE } from "../lib/currency";
+  import { chosenCurrency, rates } from "../lib/display";
   import { dash, fmt, pct } from "../lib/format";
   import { confirmReset, seedOf } from "../lib/mode";
 
@@ -80,7 +84,8 @@ const addBtn =
         field(row, "name").value = a.name;
         field(row, "institution").value = a.institution;
         field(row, "amount").value = a.amount == null ? "" : String(a.amount);
-      }
+        field(row, "currency").value = a.currency ?? BASE;
+      } else field(row, "currency").value = chosenCurrency();
       list.append(row);
       return row;
     };
@@ -93,12 +98,19 @@ const addBtn =
       const rows = [...list.querySelectorAll<HTMLElement>("[data-row]")];
       const state: Account[] = rows.map((row) => {
         const raw = field(row, "amount").value;
-        return { name: field(row, "name").value, institution: field(row, "institution").value, amount: raw === "" ? null : Number(raw) || 0 };
+        return {
+          name: field(row, "name").value,
+          institution: field(row, "institution").value,
+          amount: raw === "" ? null : Number(raw) || 0,
+          currency: field(row, "currency").value as Currency,
+        };
       });
-      const s = summarizeAccounts(state);
+      const s = summarizeAccounts(state, rates());
       rows.forEach((row, i) => {
-        const a = state[i].amount;
-        q("[data-share]", row).textContent = a == null || !s.known ? "—" : pct(a / s.known);
+        const a = accountInBase(state[i], rates());
+        const share = q("[data-share]", row);
+        share.textContent = a == null || !s.known ? "—" : pct(a / s.known);
+        share.title = a == null ? "" : `${fmt(a)} in the display currency`;
       });
       q("[data-empty]").hidden = rows.length > 0;
       q("[data-total]").textContent = s.count ? fmt(s.known) : dash();
@@ -106,7 +118,9 @@ const addBtn =
         ? "Add an account to see the total"
         : s.unknown
           ? `Partial: ${s.count - s.unknown} of ${s.count} balances entered`
-          : "";
+          : s.noRate
+            ? `Partial: no exchange rate for ${s.noRate} ${s.noRate === 1 ? "account" : "accounts"}`
+            : "";
       root.dataset.state = JSON.stringify(state);
       root.dispatchEvent(new CustomEvent("flowchange", { bubbles: true }));
       return state;

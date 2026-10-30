@@ -41,7 +41,7 @@ const { asOf } = Astro.props;
         shownCurrency() !== chosen
           ? `No ${chosen} exchange rate is available yet, so amounts are shown in ${BASE}.`
           : chosen !== BASE && date
-            ? `Amounts are entered in ${BASE} and shown in ${chosen} at the ECB rate of ${date}.`
+            ? `Totals are shown in ${chosen} at the ECB rate of ${date}. Each account and income keeps its own currency.`
             : "";
       note.hidden = !note.textContent;
     };

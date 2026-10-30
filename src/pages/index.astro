@@ -30,6 +30,7 @@ import {
 import { blank } from "../data/blank";
 import { parseGbmCsv } from "../lib/gbm";
 import { summarizeAccounts } from "../lib/accounts";
+import { rates } from "../lib/display";
 
 // The server renders the blank first-visit state; finance.ts is only the demo, passed to each
 // editor as `demo` and loaded in the browser when the visitor asks for it.
@@ -90,7 +91,7 @@ const demoInvestments = { ...investments, portfolio: parseGbmCsv(gbmPortfolioCsv
       <CreditAccounts id="credit" seed={blank.credit} demo={credit} legacyKey="finance:credits:v2" />
       <DebtCalculator
         balance={blank.startingCash}
-        demoBalance={summarizeAccounts(accounts).total}
+        demoBalance={summarizeAccounts(accounts, rates()).total}
         inflows="inflows"
         outflows="outflows"
         credit="credit"
