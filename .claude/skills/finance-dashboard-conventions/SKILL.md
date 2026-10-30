@@ -12,6 +12,7 @@ This project stays easy to change because each kind of decision has one home. Be
 | Decision | Home | Rule |
 |---|---|---|
 | Demo numbers and the category lists (incomes, outflows, accounts, credit, goals, action plan) | `src/data/finance.ts` | Demo data only, loaded on request. Never hard-code an amount in a component. Everything derived is computed in `src/pages/index.astro` frontmatter. |
+| Backup file format, validation, encryption | `src/lib/backup.ts` | `{ app, version, exportedAt, keys }` with every `finance:*` key's raw string, or `encrypted` (AES-GCM, PBKDF2-SHA-256) in place of `keys`. Bump `BACKUP_VERSION` when the shape changes; newer files are refused with a message. The UI is `DataFooter.astro`, and import always confirms before replacing. |
 | What a first visit starts with | `src/data/blank.ts` | Empty lists and a `null` starting cash. The server renders this state. |
 | Blank vs demo, and app-wide data actions | `src/lib/mode.ts` | `finance:mode:v1` (`demo` / `own` / unset = first visit), `seedOf(root)`, `confirmReset`, `loadDemo`, `startBlank`, `eraseAll`. |
 | Shape of that data | `src/data/types.ts` | Domain types only. |

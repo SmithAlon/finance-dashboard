@@ -52,7 +52,7 @@ export const confirmReset = () =>
   confirm(
     readMode() === 'demo'
       ? 'Put the demo figures in this section back as they were?'
-      : "Clear everything in this section? It can't be undone.",
+      : "Clear everything in this section? It can't be undone unless you exported a backup.",
   );
 
 /** Replaces whatever is saved with the demo figures, after asking if there is anything to lose. */

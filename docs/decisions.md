@@ -4,6 +4,8 @@ Product decisions that are not obvious from the code. Newest first. Update this 
 
 ## Decided (2026-10-30)
 
+- **Backups replace sync.** Export/Import of all `finance:*` keys as one versioned JSON file, optionally encrypted with a passphrase (Web Crypto, no dependency). Import validates, refuses newer formats, and confirms before replacing.
+
 - **A first visit starts blank.** The demo (`finance.ts`) loads only from "Load demo data", with a banner until the visitor starts blank. The choice is `finance:mode:v1`; visitors with data saved from before are treated as their own data. Accounts became an editable list (`finance:accounts:v1`), and the projection's starting cash may be left blank (unknown).
 
 - **Portfolio counts toward net worth**, valued at the latest USD→MXN rate. Built: liquid net worth = accounts + portfolio + fixed income − credit owed, with PPR excluded (locked until retirement) and "can't compute" when an investment has no value. The rate's age is shown in the portfolio note, and a warning appears above the totals once it is more than 7 days old (`FX_STALE_DAYS` in `src/lib/fx.ts`).
