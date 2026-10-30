@@ -52,7 +52,8 @@ const addBtn =
     </header>
     <p class="sub">
       Set each card or loan up once, then update what you owe when a statement arrives. If you don't know a balance,
-      leave it blank: it shows as missing, never as $0. Type 0 when you owe nothing.
+      leave it blank: it shows as missing, never as $0. Type 0 when you owe nothing. Cards and loans are entered in
+      pesos (MXN).
     </p>
 
     <div data-migration hidden class="mb-4 rounded-xl border border-transfer/30 bg-transfer/8 p-3.5 text-[13px]">
@@ -180,7 +181,7 @@ const addBtn =
     type CreditStatus,
     type LegacyCreditRow,
   } from "../lib/credit";
-  import { mxn } from "../lib/format";
+  import { fmt } from "../lib/format";
   import { confirmReset, seedOf } from "../lib/mode";
 
   const TEXT = new Set(["issuer", "issuerOther", "nickname", "type", "balanceUpdatedAt", "endDate", "merchant"]);
@@ -298,7 +299,7 @@ const addBtn =
       });
       q(root, "[data-empty]").hidden = s.views.length > 0;
       q(root, "[data-setup-empty]").hidden = s.views.length > 0;
-      q(root, "[data-payments]").textContent = mxn(s.payments);
+      q(root, "[data-payments]").textContent = fmt(s.payments);
       q(root, "[data-owed-text]").textContent = s.views.length
         ? s.complete
           ? owedText(s)
@@ -317,8 +318,8 @@ const addBtn =
           const [c0, c1, c2, c3] = tr.children;
           c0.textContent = date;
           c1.textContent = d.name + (d.past ? " · date passed" : "");
-          c2.textContent = mxn(d.amount);
-          c3.textContent = d.minimum ? `min ${mxn(d.minimum)}` : "";
+          c2.textContent = fmt(d.amount);
+          c3.textContent = d.minimum ? `min ${fmt(d.minimum)}` : "";
           if (d.past) tr.classList.add("text-ink-2");
           return tr;
         }),
@@ -364,6 +365,8 @@ const addBtn =
     fill(store);
     recalc();
 
+    // Fresher exchange rates change every converted figure.
+    document.addEventListener("ratechange", () => recalc());
     root.addEventListener("input", (e) => {
       const el = e.target as HTMLElement;
       const setup = el.closest<HTMLElement>("[data-setup]");

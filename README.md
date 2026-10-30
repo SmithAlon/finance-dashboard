@@ -15,7 +15,7 @@ npm run build    # static site in dist/
 npm run preview  # serve dist/
 ```
 
-`npm run build` first refreshes the USD→MXN rate (`npm run prices`, from the Frankfurter API). If that fails it keeps the last rate and the build still succeeds.
+`npm run build` first refreshes the exchange-rate snapshot (`npm run prices`, ECB rates from the Frankfurter API). If that fails it keeps the last snapshot and the build still succeeds. In the browser, the page fetches fresher rates itself and falls back to the snapshot.
 
 ## Make it yours
 
@@ -30,7 +30,7 @@ There is no sync. At the bottom of the page, **Export backup** downloads one JSO
 
 ## Privacy and security
 
-Your financial data stays in your browser. There is no server, account or analytics: what you type is saved in localStorage, which belongs to one browser on one device and one site. The only network request is the exchange rate, which carries no data of yours.
+Your financial data stays in your browser. There is no server, account or analytics: what you type is saved in localStorage, which belongs to one browser on one device and one site. The only network request is for exchange rates (to Frankfurter), which carries no data of yours.
 
 If you fork or contribute:
 
@@ -42,7 +42,7 @@ If you fork or contribute:
 
 - `CLAUDE.md` and `.claude/skills/finance-dashboard-conventions/` describe the architecture and design rules.
 - `docs/decisions.md` lists product decisions and what is still open.
-- Money is shown in MXN today; multi-currency is planned (see the decisions file).
+- Amounts can be shown in MXN, USD or EUR (the picker at the top), converted at ECB reference rates.
 
 ## License
 

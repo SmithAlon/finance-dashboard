@@ -1,5 +1,5 @@
-// How old the build-time USD→MXN rate is. The site is static, so a rate only moves when the site
-// is rebuilt; showing its age keeps a stale dollar value from passing as current.
+// How old the exchange rates in use are. The browser refetches them, but offline or on a failed
+// fetch the build-time snapshot is used; showing its age keeps a stale conversion from passing as current.
 
 /** A rate older than this many days triggers a warning. */
 export const FX_STALE_DAYS = 7;
@@ -18,5 +18,7 @@ export function fxAge(date: string, today = new Date()) {
 export function fxWarning(date: string | null | undefined, today = new Date()): string | null {
   if (!date) return null;
   const age = fxAge(date, today);
-  return age.stale ? `The USD→MXN rate is ${age.days} days old, so dollar values may be off. Rebuild the site or run npm run prices to refresh it.` : null;
+  return age.stale
+    ? `Exchange rates are ${age.days} days old (ECB, via Frankfurter), so converted values may be off. They refresh when this page can reach the rates service.`
+    : null;
 }

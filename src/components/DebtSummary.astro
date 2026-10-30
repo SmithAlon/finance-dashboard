@@ -35,7 +35,7 @@ const stats = [
 </div>
 
 <script>
-  import { mxn, pct } from '../lib/format';
+  import { dash, fmt, pct } from '../lib/format';
   import { toMonthly } from '../lib/income';
   import { readAccounts, readCredit, readFlow } from '../lib/flows';
   import { guaranteeDeposit, summarizeAccounts } from '../lib/accounts';
@@ -47,11 +47,11 @@ const stats = [
       const accounts = readAccounts(root.dataset.accounts!);
       const assets = summarizeAccounts(accounts).total;
       const deposit = guaranteeDeposit(accounts);
-      q('[data-stat=deposit]').textContent = deposit == null ? '$—' : mxn(deposit);
+      q('[data-stat=deposit]').textContent = deposit == null ? dash() : fmt(deposit);
       const s = summarize(readCredit(root.dataset.credit!));
       const income = readFlow(root.dataset.in!).reduce((a, l) => a + toMonthly(l.amount ?? 0, l.freq), 0);
       const n = s.views.length;
-      q('[data-stat=owed]').textContent = s.complete ? mxn(s.owedKnown) : '$—';
+      q('[data-stat=owed]').textContent = s.complete ? fmt(s.owedKnown) : dash();
       q('[data-stat=dti]').textContent = s.complete && income ? pct(s.owedKnown / income) : '—';
       q('[data-text]').textContent = !n
         ? 'No credit accounts added yet, so none are counted here.'
@@ -61,7 +61,7 @@ const stats = [
             ? 'Nothing owed on any account. Liquid net worth is everything you hold.'
             : assets == null
               ? `${owedText(s)}. Enter every account balance to see what is left once it is paid.`
-              : `What you owe brings what your accounts hold from ${mxn(assets)} down to ${mxn(assets - s.owedKnown)}.`;
+              : `What you owe brings what your accounts hold from ${fmt(assets)} down to ${fmt(assets - s.owedKnown)}.`;
     };
     document.addEventListener('flowchange', render);
     render();

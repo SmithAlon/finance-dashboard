@@ -30,12 +30,9 @@ import {
 import { blank } from "../data/blank";
 import { parseGbmCsv } from "../lib/gbm";
 import { summarizeAccounts } from "../lib/accounts";
-import prices from "../data/prices.json";
-import type { PriceFeed } from "../data/types";
 
 // The server renders the blank first-visit state; finance.ts is only the demo, passed to each
 // editor as `demo` and loaded in the browser when the visitor asks for it.
-const feed = prices as PriceFeed;
 const demoInvestments = { ...investments, portfolio: parseGbmCsv(gbmPortfolioCsv, gbmPortfolioFile) };
 ---
 
@@ -50,8 +47,6 @@ const demoInvestments = { ...investments, portfolio: parseGbmCsv(gbmPortfolioCsv
       seedAccounts={blank.accounts}
       seedCredit={blank.credit}
       seedInvestments={blank.investments}
-      usdMxn={feed.usdMxn?.rate ?? null}
-      fxDate={feed.usdMxn?.date ?? null}
       inflows="inflows"
       outflows="outflows"
       accounts="accounts"
@@ -114,7 +109,7 @@ const demoInvestments = { ...investments, portfolio: parseGbmCsv(gbmPortfolioCsv
     </TabPanel>
 
     <TabPanel id="investments" hidden class="grid gap-4 min-w-0">
-      <Investments id="investments" seed={blank.investments} demo={demoInvestments} prices={feed} />
+      <Investments id="investments" seed={blank.investments} demo={demoInvestments} />
     </TabPanel>
 
     <DataFooter />

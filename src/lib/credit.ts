@@ -2,7 +2,7 @@
 // the projection. An unknown balance (`null`) is never coerced to 0: totals report it as partial.
 
 import type { CardAccount, CreditAccount, CreditStore, Frequency, IssuerId, LoanAccount, Maybe, MsiPlan } from '../data/types';
-import { mxn } from './format';
+import { fmt } from './format';
 import { toMonthly } from './income';
 
 export const issuers: { id: IssuerId; label: string }[] = [
@@ -176,19 +176,19 @@ export function describe(a: CreditAccount, plans: MsiPlan[], status: CreditStatu
   const name = accountName(a);
   const owed = owedOf(a);
   const pay = paymentOf(a);
-  const payText = pay ? `${mxn(pay)} a month` : null;
+  const payText = pay ? `${fmt(pay)} a month` : null;
   if (status === 'unknown')
     return `${name}: no balance entered, so what you owe isn't counted.` + (payText ? ` You pay ${payText}.` : '');
   if (status === 'nothing') return `${name}: you owe nothing.`;
   const p = payoff(a, plans, today)!;
-  const head = `${name}: you owe ${mxn(owed!)}.`;
+  const head = `${name}: you owe ${fmt(owed!)}.`;
   if (status === 'paid-monthly') return `${head} You pay it in full each month, so it costs no interest.`;
   if (!pay) return `${head} Enter what you pay each month to see when it's paid off.`;
   if (p === 'never') return `${head} At ${payText} it never goes down: the payment doesn't cover the interest.`;
   const when = `you're free in ${plural(p.months, 'month')} (${monthLabel(p.months - 1, today)})`;
   if (status === 'free') return `${head} It's all interest-free installments: ${when}.`;
   if (a.interestRate == null) return `${head} At ${payText} ${when}. Add the interest rate to see what it costs.`;
-  return `${head} At ${payText} ${when} and pay ${mxn(p.interest)} in interest.`;
+  return `${head} At ${payText} ${when} and pay ${fmt(p.interest)} in interest.`;
 }
 
 export interface AccountView {
@@ -247,19 +247,19 @@ export function summarize(store: CreditStore, today = new Date()): CreditSummary
 /** "$1,200 owed (2 of 3 accounts)" when partial, "$1,200 owed" when complete. */
 export const owedText = (s: CreditSummary) =>
   s.complete
-    ? `${mxn(s.owedKnown)} owed`
-    : `${mxn(s.owedKnown)} owed (${s.views.length - s.unknown} of ${plural(s.views.length, 'account')})`;
+    ? `${fmt(s.owedKnown)} owed`
+    : `${fmt(s.owedKnown)} owed (${s.views.length - s.unknown} of ${plural(s.views.length, 'account')})`;
 
 /** The one-sentence summary under the headline. */
 export function summarySentence(s: CreditSummary): string {
   const n = s.views.length;
   if (!n) return "You haven't added any credit cards or loans yet, so none are counted.";
   const across = `across ${plural(n, 'account')}`;
-  if (s.complete) return s.owedKnown ? `You owe ${mxn(s.owedKnown)} ${across}.` : `You owe nothing ${across}.`;
+  if (s.complete) return s.owedKnown ? `You owe ${fmt(s.owedKnown)} ${across}.` : `You owe nothing ${across}.`;
   const missing = s.views.filter((v) => v.state === 'unknown');
   const kind = missing.every((v) => v.account.type === 'card') ? 'card' : missing.every((v) => v.account.type === 'loan') ? 'loan' : 'account';
   const verb = missing.length === 1 ? 'has' : 'have';
-  return `You owe ${mxn(s.owedKnown)} ${across}, but ${plural(missing.length, kind)} ${verb} no balance entered.`;
+  return `You owe ${fmt(s.owedKnown)} ${across}, but ${plural(missing.length, kind)} ${verb} no balance entered.`;
 }
 
 export interface Due {
@@ -316,10 +316,10 @@ export function migrateLegacy(rows: LegacyCreditRow[], today = new Date()): { st
     if (row.freq === 'once' && row.amount) {
       if (owed == null) {
         owed = row.amount;
-        notes.push(`"${name}": a one-time payment of ${mxn(row.amount)} is now a balance of ${mxn(row.amount)}, paid off in one payment.`);
+        notes.push(`"${name}": a one-time payment of ${fmt(row.amount)} is now a balance of ${fmt(row.amount)}, paid off in one payment.`);
       }
     } else if (row.freq !== 'month' && row.amount) {
-      notes.push(`"${name}": ${mxn(row.amount)} (${row.freq}) is now ${mxn(monthly)} a month.`);
+      notes.push(`"${name}": ${fmt(row.amount)} (${row.freq}) is now ${fmt(monthly)} a month.`);
     }
     if (owed == null) notes.push(`"${name}": the balance was blank. It now shows as "balance missing" instead of counting as $0.`);
     const payment = row.amount == null ? null : row.freq === 'once' ? row.amount : monthly;

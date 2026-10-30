@@ -155,13 +155,19 @@ export interface ActionItem {
   due: string;
 }
 
-/** Currency an account reports in: GBM's USA account in dollars, the Mexican one in pesos. */
-export type Currency = 'MXN' | 'USD';
+/** The currencies the dashboard can show and convert between. */
+export type Currency = 'MXN' | 'USD' | 'EUR';
 
-/** `src/data/prices.json`, written at build time by `scripts/fetch-prices.mjs`. Null until a fetch succeeds. */
+/** ECB reference rates (via Frankfurter): units of each currency per 1 EUR, for one day. */
+export interface RateTable {
+  /** ISO date (YYYY-MM-DD) the ECB published these rates. */
+  date: string;
+  perEur: Partial<Record<Currency, number>>;
+}
+
+/** `src/data/prices.json`, written at build time by `scripts/fetch-prices.mjs`: the fallback when the browser can't fetch fresher rates. Null until a fetch succeeds. */
 export interface PriceFeed {
-  /** USD→MXN from Frankfurter (ECB reference rate). */
-  usdMxn: { rate: number; date: string } | null;
+  rates: RateTable | null;
 }
 
 /** One row of GBM's portfolio export, in the account's currency. GBM's "-" is null, never 0. */

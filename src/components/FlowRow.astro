@@ -1,7 +1,7 @@
 ---
 import type { FlowCategory, Frequency } from '../data/types';
 import { frequencies, toMonthly } from '../lib/income';
-import { mxn } from '../lib/format';
+import { fmt } from '../lib/format';
 
 interface Props {
   label?: string;
@@ -55,5 +55,5 @@ const category = Astro.props.category ?? categories[0]?.id;
   <select data-freq class="field" aria-label="Frequency">
     {frequencies.map((f) => <option value={f.id} selected={f.id === freq}>{f.label}</option>)}
   </select>
-  <b data-monthly class="mono text-right text-[13px] text-ink" title="Monthly equivalent">{mxn(toMonthly(amount ?? 0, freq))}</b>
+  <b data-monthly class="mono text-right text-[13px] text-ink" title="Monthly equivalent">{fmt(toMonthly(amount ?? 0, freq))}</b>
 </li>

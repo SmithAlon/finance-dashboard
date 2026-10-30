@@ -1,27 +1,27 @@
-// Build-time USD→MXN rate for the Investments tab (runs as `prebuild`, or `npm run prices`). The GBM
-// USA portfolio is imported in dollars from its CSV export; this fetches the rate that turns it into
-// pesos from Frankfurter (ECB, keyless) and writes src/data/prices.json. A failure keeps the previous
-// rate, so the build never fails because of it, and a rate never fetched stays null, never 0.
+// Build-time snapshot of the exchange rates (runs as `prebuild`, or `npm run prices`). The browser
+// fetches fresher rates itself (src/lib/display.ts); this file is the fallback when it can't. Rates
+// are ECB reference rates from Frankfurter (keyless), stored per 1 EUR. A failure keeps the
+// previous snapshot, so the build never fails because of it, and rates never fetched stay null.
 
 import { readFile, writeFile } from 'node:fs/promises';
 
 const OUT = new URL('../src/data/prices.json', import.meta.url);
 
-let feed = { usdMxn: null };
+let feed = { rates: null };
 try {
-  const { usdMxn } = JSON.parse(await readFile(OUT, 'utf8'));
-  feed = { usdMxn: usdMxn ?? null };
+  const old = JSON.parse(await readFile(OUT, 'utf8'));
+  feed = { rates: old.rates ?? null };
 } catch {}
 
 try {
-  const res = await fetch('https://api.frankfurter.dev/v1/latest?from=USD&to=MXN', { signal: AbortSignal.timeout(10_000) });
+  const res = await fetch('https://api.frankfurter.dev/v1/latest?symbols=USD,MXN', { signal: AbortSignal.timeout(10_000) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const fx = await res.json();
-  if (!fx?.rates?.MXN) throw new Error('no MXN rate in response');
-  feed.usdMxn = { rate: fx.rates.MXN, date: fx.date };
-  console.log(`[prices] USD→MXN ${fx.rates.MXN} (${fx.date})`);
+  if (!fx?.rates?.USD || !fx?.rates?.MXN) throw new Error('USD or MXN missing from response');
+  feed.rates = { date: fx.date, perEur: { USD: fx.rates.USD, MXN: fx.rates.MXN } };
+  console.log(`[prices] per EUR: USD ${fx.rates.USD}, MXN ${fx.rates.MXN} (${fx.date})`);
 } catch (e) {
-  console.warn(`[prices] USD→MXN not fetched (${e.message}); keeping ${feed.usdMxn ? feed.usdMxn.date : 'none'}`);
+  console.warn(`[prices] rates not fetched (${e.message}); keeping ${feed.rates ? feed.rates.date : 'none'}`);
 }
 
 await writeFile(OUT, JSON.stringify(feed, null, 2) + '\n');

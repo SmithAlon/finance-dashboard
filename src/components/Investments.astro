@@ -5,7 +5,7 @@
 // others can `readInvestments(id)`.
 import InvestmentRow from "./InvestmentRow.astro";
 import TabPanel from "./TabPanel.astro";
-import type { InvestmentStore, PriceFeed } from "../data/types";
+import type { InvestmentStore } from "../data/types";
 import type { InvestTabId } from "../types";
 import { bucketLabels, type BucketId, type ManualBucketId } from "../lib/investments";
 import { sliceFills, tones } from "../lib/tone";
@@ -17,17 +17,15 @@ interface Props {
   seed: InvestmentStore;
   /** The demo store, sample GBM portfolio included, loaded instead in demo mode. */
   demo: InvestmentStore;
-  /** Build-time USD→MXN rate for a dollar portfolio. */
-  prices: PriceFeed;
 }
-const { id, seed, demo, prices } = Astro.props;
+const { id, seed, demo } = Astro.props;
 const buckets: { id: BucketId; tab: InvestTabId; noun: string; hint: string }[] = [
   {
     id: "portfolio", tab: "invest-portfolio", noun: "position",
-    hint: "In the GBM app, open your portfolio, download its detail as CSV and import the file here. Figures are GBM's, in the account's currency; the total above converts them to pesos.",
+    hint: "In the GBM app, open your portfolio, download its detail as CSV and import the file here. Figures are GBM's, in the account's currency; the total above converts them to your display currency.",
   },
-  { id: "fixedIncome", tab: "invest-fixedIncome", noun: "instrument", hint: "CETES, government bonds, debt funds and term deposits. Enter the value with interest included." },
-  { id: "ppr", tab: "invest-ppr", noun: "plan", hint: "Personal retirement plans. Locked until 65, and contributions can be deducted on your tax return within SAT limits." },
+  { id: "fixedIncome", tab: "invest-fixedIncome", noun: "instrument", hint: "CETES, government bonds, debt funds and term deposits. Enter the value with interest included, in pesos (MXN)." },
+  { id: "ppr", tab: "invest-ppr", noun: "plan", hint: "Personal retirement plans. Locked until 65, and contributions can be deducted on your tax return within SAT limits. Amounts in pesos (MXN)." },
 ];
 const manual = buckets.filter((b): b is typeof b & { id: ManualBucketId } => b.id !== "portfolio");
 const addBtn =
@@ -44,8 +42,6 @@ const R = 15.9155;
   data-old-keys={JSON.stringify([`finance:${id}:v3`, `finance:${id}:v2`])}
   data-seed={JSON.stringify(seed)}
   data-demo={JSON.stringify(demo)}
-  data-usd-mxn={prices.usdMxn?.rate ?? ""}
-  data-fx-date={prices.usdMxn?.date ?? ""}
   data-fills={JSON.stringify(sliceFills)}
   data-gain-badges={JSON.stringify({ up: tones.inflow.badge, down: tones.outflow.badge, flat: tones.neutral.badge })}
   data-gain-text={JSON.stringify({ up: tones.inflow.text, down: tones.outflow.text, flat: tones.neutral.text })}
@@ -193,8 +189,9 @@ const R = 15.9155;
   import {
     allocationTakeaway, blanks, gainText, investedNote, migratePpr, portfolioNote, summarizeInvestments, type ManualBucketId, type Slice, type SliceFill,
   } from "../lib/investments";
-  import { money, mxn, pct, shareCount } from "../lib/format";
+  import { dash, fmt, money, pct, shareCount } from "../lib/format";
   import { confirmReset, seedOf } from "../lib/mode";
+  import { rates } from "../lib/display";
 
   const MANUAL: ManualBucketId[] = ["fixedIncome", "ppr"];
   const TEXT = new Set(["name", "kind", "frequency"]);
@@ -205,8 +202,6 @@ const R = 15.9155;
   const init = (root: HTMLElement) => {
     const KEY = root.dataset.key!;
     const seed = seedOf<InvestmentStore>(root);
-    const usdMxn: Maybe = root.dataset.usdMxn ? Number(root.dataset.usdMxn) : null;
-    const fxDate = root.dataset.fxDate;
     const fills: Record<SliceFill, { dot: string; stroke: string }> = JSON.parse(root.dataset.fills!);
     const badges: Record<"up" | "down" | "flat", string> = JSON.parse(root.dataset.gainBadges!);
     const gainTextCls: Record<"up" | "down" | "flat", string> = JSON.parse(root.dataset.gainText!);
@@ -261,7 +256,7 @@ const R = 15.9155;
     let slices: Slice[] = [];
     let total = 0;
     const centre = (s?: Slice) => {
-      q("[data-center-value]").textContent = s ? pct(s.value / total) : mxn(total);
+      q("[data-center-value]").textContent = s ? pct(s.value / total) : fmt(total);
       q("[data-center-label]").textContent = s ? s.label : "invested";
       root.querySelectorAll<SVGElement>("[data-seg]").forEach((el) => el.classList.toggle("opacity-30", !!s && el.dataset.seg !== s.id));
     };
@@ -278,7 +273,7 @@ const R = 15.9155;
           c.setAttribute("class", `${fills[s.fill].stroke} transition-opacity cursor-default`);
           c.dataset.seg = s.id;
           const title = document.createElementNS(SVG, "title");
-          title.textContent = `${s.label}: ${mxn(s.value)} (${pct(s.value / total)})`;
+          title.textContent = `${s.label}: ${fmt(s.value)} (${pct(s.value / total)})`;
           c.append(title);
           start += len;
           return c;
@@ -293,7 +288,7 @@ const R = 15.9155;
           li.dataset.slice = s.id;
           q("[data-slice-dot]", li).className = `dot ${fills[s.fill].dot}`;
           q("[data-slice-label]", li).textContent = s.label;
-          q("[data-slice-value]", li).textContent = mxn(s.value);
+          q("[data-slice-value]", li).textContent = fmt(s.value);
           q("[data-slice-share]", li).textContent = pct(s.value / total);
           return li;
         }),
@@ -317,7 +312,7 @@ const R = 15.9155;
       q("[data-empty=portfolio]").hidden = !!portfolio;
       q("[data-portfolio]").hidden = !portfolio;
       q("[data-portfolio-note]").textContent = portfolio
-        ? portfolioNote(portfolio, { usdMxn: usdMxn == null ? null : { rate: usdMxn, date: fxDate! } })
+        ? portfolioNote(portfolio, rates())
         : "";
       if (!portfolio) return;
       const cur = portfolio.currency;
@@ -355,10 +350,10 @@ const R = 15.9155;
 
     const recalc = () => {
       const store = readStore();
-      const s = summarizeInvestments(store, usdMxn);
+      const s = summarizeInvestments(store, rates());
       slices = s.slices;
       total = s.value;
-      q("[data-total]").textContent = s.unknown && !s.value ? "$—" : mxn(s.value);
+      q("[data-total]").textContent = s.unknown && !s.value ? dash() : fmt(s.value);
       q("[data-total-note]").textContent = investedNote(s);
       q("[data-chart-takeaway]").textContent = allocationTakeaway(s);
       drawDonut();
@@ -368,7 +363,7 @@ const R = 15.9155;
         q(`[data-empty="${b.id}"]`).hidden = b.rows.length > 0;
         const rows = [...list(b.id).querySelectorAll<HTMLElement>("[data-row]")];
         b.rows.forEach((v, i) => {
-          q("[data-out-value]", rows[i]).textContent = v.value == null ? "$—" : mxn(v.value);
+          q("[data-out-value]", rows[i]).textContent = v.value == null ? dash() : fmt(v.value);
           const gain = q("[data-out-gain]", rows[i]);
           gain.hidden = v.gain == null;
           if (v.gain != null) {
@@ -425,6 +420,8 @@ const R = 15.9155;
       }
     });
 
+    // Fresher exchange rates change every converted figure.
+    document.addEventListener("ratechange", () => recalc());
     root.addEventListener("input", (e) => {
       if ((e.target as Element).closest("[data-row]")) save();
     });
