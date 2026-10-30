@@ -4,6 +4,8 @@ Product decisions that are not obvious from the code. Newest first. Update this 
 
 ## Decided (2026-10-30)
 
+- **Free static hosting, no third-party requests.** Cloudflare Pages is the recommended host (`DEPLOY.md`), GitHub Pages the alternative. Inter is self-hosted, scripts are never inlined, and a strict CSP (`public/_headers` plus a `<meta>` copy) allows only the site itself and `api.frankfurter.dev`.
+
 - **Backups replace sync.** Export/Import of all `finance:*` keys as one versioned JSON file, optionally encrypted with a passphrase (Web Crypto, no dependency). Import validates, refuses newer formats, and confirms before replacing.
 
 - **A first visit starts blank.** The demo (`finance.ts`) loads only from "Load demo data", with a banner until the visitor starts blank. The choice is `finance:mode:v1`; visitors with data saved from before are treated as their own data. Accounts became an editable list (`finance:accounts:v1`), and the projection's starting cash may be left blank (unknown).
