@@ -1,0 +1,116 @@
+---
+import Base from "../layouts/Base.astro";
+import Header from "../components/Header.astro";
+import Headline from "../components/Headline.astro";
+import Tabs from "../components/Tabs.astro";
+import TabPanel from "../components/TabPanel.astro";
+import FlowForm from "../components/FlowForm.astro";
+import CreditAccounts from "../components/CreditAccounts.astro";
+import BalanceSheet from "../components/BalanceSheet.astro";
+import DebtSummary from "../components/DebtSummary.astro";
+import DebtCalculator from "../components/DebtCalculator.astro";
+import BalanceView from "../components/BalanceView.astro";
+import ActionPlan from "../components/ActionPlan.astro";
+import Investments from "../components/Investments.astro";
+import {
+  inflows,
+  incomeCategories,
+  outflows,
+  expenseCategories,
+  accounts,
+  credit,
+  investments,
+  gbmPortfolioCsv,
+  gbmPortfolioFile,
+  goals,
+  actionPlan,
+} from "../data/finance";
+import { parseGbmCsv } from "../lib/gbm";
+import prices from "../data/prices.json";
+import type { Amounted, PriceFeed } from "../data/types";
+
+const sum = (xs: Amounted[]) => xs.reduce((a, x) => a + x.amount, 0);
+const income = sum(inflows);
+const spend = sum(outflows);
+const balance = sum(accounts);
+const guaranteeDeposit =
+  accounts.find((a) => a.name.startsWith("Credit"))?.amount ?? 0;
+const feed = prices as PriceFeed;
+const seedInvestments = { ...investments, portfolio: parseGbmCsv(gbmPortfolioCsv, gbmPortfolioFile) };
+---
+
+<Base title="Finance Dashboard">
+  <main class="max-w-[1040px] mx-auto px-4 pt-8 pb-16 grid gap-4">
+    <Header asOf={goals.today} />
+
+    <Headline
+      income={income}
+      spend={spend}
+      assets={balance}
+      seedCredit={credit}
+      seedInvestments={seedInvestments}
+      usdMxn={feed.usdMxn?.rate ?? null}
+      fxDate={feed.usdMxn?.date ?? null}
+      inflows="inflows"
+      outflows="outflows"
+      credit="credit"
+      investments="investments"
+    />
+
+    <Tabs />
+
+    <TabPanel id="balance">
+      <BalanceView income={income} spend={spend} inflows="inflows" outflows="outflows">
+        <FlowForm
+          slot="inflows"
+          id="inflows"
+          title="Income sources"
+          noun="income"
+          placeholder="Income source"
+          totalLabel="Total monthly income"
+          tone="inflow"
+          categories={incomeCategories}
+          items={inflows}
+          legacyKey="finance:inflows:v1"
+        />
+        <FlowForm
+          slot="outflows"
+          id="outflows"
+          title="Expenses"
+          noun="expense"
+          placeholder="Expense"
+          totalLabel="Total monthly spending"
+          tone="outflow"
+          categories={expenseCategories}
+          items={outflows}
+        />
+      </BalanceView>
+    </TabPanel>
+
+    <TabPanel id="debt" hidden class="grid gap-4">
+      <CreditAccounts id="credit" seed={credit} legacyKey="finance:credits:v2" />
+      <DebtCalculator
+        balance={balance}
+        inflows="inflows"
+        outflows="outflows"
+        credit="credit"
+        expenseCategories={expenseCategories}
+      />
+    </TabPanel>
+
+    <TabPanel id="accounts" hidden class="grid gap-4">
+      <BalanceSheet accounts={accounts} />
+      <DebtSummary
+        credit="credit"
+        inflows="inflows"
+        assets={balance}
+        guaranteeDeposit={guaranteeDeposit}
+        actions={actionPlan.filter((a) => a.title.includes("card utilization"))}
+      />
+    </TabPanel>
+
+    <TabPanel id="investments" hidden class="grid gap-4 min-w-0">
+      <Investments id="investments" seed={seedInvestments} prices={feed} />
+    </TabPanel>
+  </main>
+</Base>

@@ -1,0 +1,63 @@
+---
+// One credit card or loan's terms in the credit editor's Card setup view: what you set once and
+// rarely change. Rendered only inside its <template>; the editor's script clones it per account.
+import CreditField, { type Props as Field } from "./CreditField.astro";
+import { issuers } from "../lib/credit";
+
+const card: Field[] = [
+  { f: "creditLimit", label: "Credit limit" },
+  { f: "interestRate", label: "Interest, % a year", kind: "pct" },
+  { f: "cat", label: "CAT, % (optional)", kind: "pct", title: "Costo Anual Total: interest plus fees. Shown for reference only." },
+  { f: "cutoffDay", label: "Statement closes, day", kind: "day" },
+  { f: "dueDay", label: "Payment due, day", kind: "day" },
+];
+const loan: Field[] = [
+  { f: "monthlyPayment", label: "Monthly payment" },
+  { f: "interestRate", label: "Interest, % a year", kind: "pct" },
+  { f: "dueDay", label: "Payment due, day", kind: "day" },
+  { f: "endDate", label: "Last payment", kind: "date" },
+];
+---
+
+<li data-setup class="grid gap-4 rounded-xl border border-line bg-surface-2/40 p-4">
+  <div data-head class="flex flex-wrap items-end gap-2">
+    <label class="grid gap-1 grow basis-36">
+      <span class="label">Bank or lender</span>
+      <select data-f="issuer" class="field">
+        {issuers.map((i) => <option value={i.id}>{i.label}</option>)}
+      </select>
+    </label>
+    <label class="grid gap-1 grow basis-36" data-other hidden>
+      <span class="label">Bank or lender name</span>
+      <input data-f="issuerOther" class="field" type="text" placeholder="e.g. Mom, Coppel" />
+    </label>
+    <label class="grid gap-1 grow basis-40">
+      <span class="label">Nickname</span>
+      <input data-f="nickname" class="field" type="text" placeholder="e.g. Gold card, car loan" />
+    </label>
+    <label class="grid gap-1 grow basis-32">
+      <span class="label">Type</span>
+      <select data-f="type" class="field">
+        <option value="card">Credit card</option>
+        <option value="loan">Loan</option>
+      </select>
+    </label>
+    <button
+      data-remove-account
+      type="button"
+      class="size-9 rounded-lg text-ink-2 hover:text-outflow hover:bg-outflow/10 transition-colors cursor-pointer"
+      aria-label="Remove this account"
+      title="Remove"
+    >
+      ×
+    </button>
+  </div>
+
+  {
+    (["card", "loan"] as const).map((type) => (
+      <div data-group={type} hidden={type === "loan"} class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {(type === "card" ? card : loan).map((x) => <CreditField {...x} />)}
+      </div>
+    ))
+  }
+</li>

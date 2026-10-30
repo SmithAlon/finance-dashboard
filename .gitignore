@@ -1,0 +1,20 @@
+# Build output and dependencies
+dist/
+node_modules/
+.astro/
+
+# Environment files
+.env
+.env.*
+
+# Personal exports: never commit real broker or bank files.
+# The sample portfolio lives in src/data/gbm-portfolio.csv and stays tracked.
+/*.csv
+/*.pdf
+/*.json.bak
+exports/
+finance-backup-*.json
+
+# OS and editor noise
+.DS_Store
+*.log

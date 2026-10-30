@@ -1,0 +1,59 @@
+---
+import type { FlowCategory, Frequency } from '../data/types';
+import { frequencies, toMonthly } from '../lib/income';
+import { mxn } from '../lib/format';
+
+interface Props {
+  label?: string;
+  amount?: number;
+  freq?: Frequency;
+  category?: string;
+  categories: FlowCategory[];
+  /** Singular noun for the line, e.g. "income" or "expense". */
+  noun: string;
+  placeholder: string;
+}
+const { label = '', amount, freq = 'month', categories, noun, placeholder } = Astro.props;
+const Noun = noun[0].toUpperCase() + noun.slice(1);
+const category = Astro.props.category ?? categories[0]?.id;
+---
+<li
+  data-row
+  class="grid grid-cols-[1fr_1fr_88px] md:grid-cols-[1fr_150px_110px_130px_96px_32px] gap-2 items-center py-2 border-b border-line last:border-b-0"
+>
+  <input
+    data-label
+    class="w-full min-w-0 h-9 bg-transparent border border-transparent rounded-lg px-0 text-[13px] text-ink placeholder:text-ink-3 transition-colors focus:outline-none focus:bg-surface-2 focus:border-brand focus:ring-1 focus:ring-brand focus:px-3 col-span-2 md:col-span-1"
+    type="text"
+    placeholder={placeholder}
+    aria-label={placeholder}
+    value={label}
+  />
+  <button
+    data-remove
+    type="button"
+    class="justify-self-end md:order-last size-8 rounded-lg text-ink-2 hover:text-outflow hover:bg-outflow/10 transition-colors cursor-pointer"
+    aria-label={`Remove ${noun}`}
+    title="Remove"
+  >
+    ×
+  </button>
+  <select data-category class="field col-span-3 md:col-span-1" aria-label={`${Noun} type`}>
+    {categories.map((c) => <option value={c.id} selected={c.id === category}>{c.label}</option>)}
+  </select>
+  <input
+    data-amount
+    class="field mono text-right"
+    type="number"
+    inputmode="decimal"
+    min="0"
+    step="any"
+    placeholder="0"
+    aria-label="Amount (MXN)"
+    value={amount}
+  />
+  <select data-freq class="field" aria-label="Frequency">
+    {frequencies.map((f) => <option value={f.id} selected={f.id === freq}>{f.label}</option>)}
+  </select>
+  <b data-monthly class="mono text-right text-[13px] text-ink" title="Monthly equivalent">{mxn(toMonthly(amount ?? 0, freq))}</b>
+</li>

@@ -1,0 +1,87 @@
+---
+// One fixed-income item or PPR in the Investments editor (the portfolio is imported from GBM, not
+// typed). Rendered only inside its <template>; the editor's script clones it per row, fills the
+// `data-f` fields and writes the computed value and gain into `data-out-*`.
+import CreditField, { type Props as Field } from "./CreditField.astro";
+import { fixedIncomeKinds, type ManualBucketId } from "../lib/investments";
+import { frequencies } from "../lib/income";
+
+interface Props {
+  bucket: ManualBucketId;
+}
+const { bucket } = Astro.props;
+
+const config: Record<ManualBucketId, { name: { f: string; label: string; placeholder: string }; kinds?: { id: string; label: string }[]; fields: Field[] }> = {
+  fixedIncome: {
+    name: { f: "name", label: "Instrument", placeholder: "e.g. CETES 28 días" },
+    kinds: fixedIncomeKinds,
+    fields: [
+      { f: "invested", label: "Invested" },
+      { f: "value", label: "Value today", placeholder: "Not entered" },
+      { f: "rate", label: "Rate, % a year", kind: "pct" },
+      { f: "maturity", label: "Matures", kind: "date" },
+    ],
+  },
+  ppr: {
+    name: { f: "name", label: "Plan", placeholder: "e.g. GBM PPR" },
+    fields: [
+      { f: "contributed", label: "Contributed", title: "Everything you have paid in so far (aportaciones)." },
+      { f: "value", label: "Value today", placeholder: "Not entered" },
+      { f: "contribution", label: "You add", title: "What you put in each time, e.g. each payday. Choose how often next to it." },
+    ],
+  },
+};
+const c = config[bucket];
+---
+
+<li data-row class="grid gap-3 rounded-xl border border-line bg-surface-2/40 p-4">
+  <div class="flex flex-wrap items-end gap-2">
+    <label class="grid gap-1 grow basis-40">
+      <span class="label">{c.name.label}</span>
+      <input data-f={c.name.f} class="field" type="text" placeholder={c.name.placeholder} />
+    </label>
+    {
+      c.kinds && (
+        <label class="grid gap-1 grow basis-32">
+          <span class="label">Type</span>
+          <select data-f="kind" class="field">
+            {c.kinds.map((k) => (
+              <option value={k.id}>{k.label}</option>
+            ))}
+          </select>
+        </label>
+      )
+    }
+    <button
+      data-remove
+      type="button"
+      class="size-9 rounded-lg text-ink-2 hover:text-outflow hover:bg-outflow/10 transition-colors cursor-pointer"
+      aria-label="Remove"
+      title="Remove"
+    >
+      ×
+    </button>
+  </div>
+
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+    {c.fields.map((x) => <CreditField {...x} />)}
+    {
+      bucket === "ppr" && (
+        <label class="grid gap-1 content-start">
+          <span class="label">How often</span>
+          <select data-f="frequency" class="field">
+            {frequencies.map((f) => (
+              <option value={f.id}>{f.label}</option>
+            ))}
+          </select>
+        </label>
+      )
+    }
+  </div>
+
+  <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]" aria-live="polite">
+    <span class="text-ink-2">Value <b data-out-value class="mono text-ink">$—</b></span>
+    <span data-out-gain hidden class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-semibold ring-1"></span>
+    <span data-out-note class="text-ink-3"></span>
+  </p>
+</li>

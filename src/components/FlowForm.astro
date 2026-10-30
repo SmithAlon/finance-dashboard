@@ -1,0 +1,287 @@
+---
+import FlowRow from "./FlowRow.astro";
+import type { CategorizedFlowItem, FlowCategory, Tone } from "../data/types";
+import { mxn, pct } from "../lib/format";
+import { tones } from "../lib/tone";
+
+interface Props {
+  /** Prefix for element ids and the localStorage key, e.g. "inflows". */
+  id: string;
+  title: string;
+  /** Singular noun for one line, e.g. "income" or "expense". */
+  noun: string;
+  /** Placeholder for a line's description field. */
+  placeholder: string;
+  totalLabel: string;
+  /** Tone of the total card. */
+  tone: Tone;
+  categories: FlowCategory[];
+  /** Starting rows (monthly amounts); restored whenever the form is reset. */
+  items: CategorizedFlowItem[];
+  /** Older key whose rows (grouped by category id) are migrated on first load. */
+  legacyKey?: string;
+  /** Column heading for the amount, e.g. "Payment". */
+  amountLabel?: string;
+}
+const {
+  id,
+  title,
+  noun,
+  placeholder,
+  totalLabel,
+  tone,
+  categories,
+  items,
+  legacyKey,
+  amountLabel = "Amount",
+} = Astro.props;
+
+const seed = items.map((i) => ({
+  label: i.label,
+  amount: i.amount,
+  freq: "month",
+  category: i.category,
+}));
+const subtotal = (cat: string) =>
+  items.filter((i) => i.category === cat).reduce((a, i) => a + i.amount, 0);
+const total = items.reduce((a, i) => a + i.amount, 0);
+---
+
+<div
+  class="grid gap-4"
+  data-flow-form
+  data-flow-id={id}
+  data-key={`finance:${id}:v2`}
+  data-legacy-key={legacyKey}
+  data-seed={JSON.stringify(seed)}
+>
+  <section class="card" aria-labelledby={`${id}-sources`}>
+    <header class="flex items-center justify-between gap-3 mb-1.5">
+      <h2 id={`${id}-sources`} class="text-2xl">{title}</h2>
+      <b class="mono text-lg" data-total-inline>{mxn(total)}</b>
+    </header>
+    <p class="sub mb-4">
+      Pick a type for each line: {
+        categories.map((c) => c.label.toLowerCase()).join(", ")
+      }.
+    </p>
+
+    <div class="hidden md:grid grid-cols-[1fr_150px_110px_130px_96px_32px] gap-2 label pb-1 border-b border-line">
+      <span>Source</span>
+      <span>Type</span>
+      <span class="text-right">{amountLabel}</span>
+      <span>Frequency</span>
+      <span class="text-right">Per month</span>
+    </div>
+    <ul data-rows>
+      {
+        items.map((i) => (
+          <FlowRow
+            label={i.label}
+            amount={i.amount}
+            category={i.category}
+            categories={categories}
+            noun={noun}
+            placeholder={placeholder}
+          />
+        ))
+      }
+    </ul>
+    <p data-empty class="text-ink-2 text-[13px] py-2" hidden={items.length > 0}>
+      No {noun} here yet.
+    </p>
+
+    <button
+      data-add
+      type="button"
+      class="mt-3 inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 -ml-2.5 text-[13px] font-medium text-brand hover:text-brand-hover hover:bg-brand/10 transition-colors cursor-pointer"
+    >
+      + Add {noun}
+    </button>
+  </section>
+
+  <section class:list={["card", tones[tone].hero]} aria-labelledby={`${id}-total`}>
+    <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
+      <div class="grid gap-0.5">
+        <span id={`${id}-total`} class="label">{totalLabel}</span>
+        <b class="mono text-[34px]" data-total aria-live="polite"
+          >{mxn(total)}</b
+        >
+      </div>
+      <span class="text-ink-2 text-[13px]">
+        <b class="mono text-ink" data-annual>{mxn(total * 12)}</b> per year
+      </span>
+    </div>
+
+    <div
+      class="flex h-3 rounded-full overflow-hidden gap-0.5 mt-4 mb-3 bg-surface-2"
+      role="img"
+      aria-label={`${title} by category`}
+    >
+      {
+        categories.map((c) => (
+          <i
+            class:list={["block h-full", tones[c.tone].dot]}
+            data-bar={c.id}
+            style={`width:${total ? (subtotal(c.id) / total) * 100 : 0}%`}
+          />
+        ))
+      }
+    </div>
+    <ul class="grid gap-1.5 text-[13px]">
+      {
+        categories.map((c) => (
+          <li class="grid grid-cols-[1fr_auto_56px] gap-3 items-center">
+            <span class="flex items-center">
+              <span class:list={["dot", tones[c.tone].dot]} />
+              {c.label}
+            </span>
+            <b class="mono" data-cat-total={c.id}>
+              {mxn(subtotal(c.id))}
+            </b>
+            <span class="mono text-ink-2 text-right" data-cat-share={c.id}>
+              {pct(total ? subtotal(c.id) / total : 0)}
+            </span>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <template data-row-template
+    ><FlowRow
+      categories={categories}
+      noun={noun}
+      placeholder={placeholder}
+    /></template
+  >
+</div>
+
+<script>
+  import { toAnnual, toMonthly } from "../lib/income";
+  import { mxn, pct } from "../lib/format";
+  import type { Frequency } from "../data/types";
+
+  type Row = {
+    label: string;
+    amount: number | null;
+    freq: Frequency;
+    category: string;
+  };
+
+  const init = (root: HTMLElement) => {
+    const KEY = root.dataset.key!;
+    const OLD_KEY = root.dataset.legacyKey;
+    const tpl = root.querySelector<HTMLTemplateElement>("[data-row-template]")!;
+    const list = root.querySelector<HTMLElement>("[data-rows]")!;
+    const seed: Row[] = JSON.parse(root.dataset.seed!);
+    const q = <T extends Element = HTMLElement>(el: ParentNode, sel: string) =>
+      el.querySelector<T>(sel)!;
+    const catIds = [...root.querySelectorAll<HTMLElement>("[data-bar]")].map(
+      (b) => b.dataset.bar!,
+    );
+
+    const num = (raw: string) => (raw === "" ? null : Math.max(0, Number(raw) || 0));
+
+    const readRow = (row: HTMLElement): Row => ({
+      label: q<HTMLInputElement>(row, "[data-label]").value,
+      amount: num(q<HTMLInputElement>(row, "[data-amount]").value),
+      freq: q<HTMLSelectElement>(row, "[data-freq]").value as Frequency,
+      category: q<HTMLSelectElement>(row, "[data-category]").value,
+    });
+
+    const addRow = (r?: Row) => {
+      const row = tpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
+      if (r) {
+        q<HTMLInputElement>(row, "[data-label]").value = r.label;
+        q<HTMLInputElement>(row, "[data-amount]").value =
+          r.amount == null ? "" : String(r.amount);
+        q<HTMLSelectElement>(row, "[data-freq]").value = r.freq;
+        if (catIds.includes(r.category))
+          q<HTMLSelectElement>(row, "[data-category]").value = r.category;
+      }
+      list.append(row);
+      return row;
+    };
+
+    const fill = (rows: Row[]) => {
+      list.replaceChildren();
+      rows.forEach((r) => addRow(r));
+    };
+
+    const recalc = () => {
+      const totals: Record<string, number> = Object.fromEntries(
+        catIds.map((id) => [id, 0]),
+      );
+      const rows = [...list.querySelectorAll<HTMLElement>("[data-row]")];
+      const state = rows.map((row) => {
+        const r = readRow(row);
+        const monthly = toMonthly(r.amount ?? 0, r.freq);
+        q(row, "[data-monthly]").textContent = mxn(monthly);
+        totals[r.category] = (totals[r.category] ?? 0) + monthly;
+        return r;
+      });
+      const total = Object.values(totals).reduce((a, b) => a + b, 0);
+      const annual = state.reduce((a, r) => a + toAnnual(r.amount ?? 0, r.freq), 0);
+      q(root, "[data-empty]").hidden = rows.length > 0;
+      q(root, "[data-total-inline]").textContent = mxn(total);
+      q(root, "[data-total]").textContent = mxn(total);
+      q(root, "[data-annual]").textContent = mxn(annual);
+      for (const [id, sub] of Object.entries(totals)) {
+        const share = total ? sub / total : 0;
+        q(root, `[data-bar="${id}"]`).style.width = share * 100 + "%";
+        q(root, `[data-cat-total="${id}"]`).textContent = mxn(sub);
+        q(root, `[data-cat-share="${id}"]`).textContent = pct(share);
+      }
+      // Other sections (the headline, the debt projection) read the live rows from here.
+      root.dataset.state = JSON.stringify(state);
+      root.dispatchEvent(new CustomEvent("flowchange", { bubbles: true }));
+      return state;
+    };
+
+    const save = () => {
+      const state = recalc();
+      try {
+        localStorage.setItem(KEY, JSON.stringify(state));
+      } catch {}
+    };
+
+    try {
+      const stored = JSON.parse(localStorage.getItem(KEY) ?? "null");
+      if (Array.isArray(stored)) fill(stored);
+      else if (OLD_KEY) {
+        // The legacy shape stored rows grouped by category id; flatten them.
+        const old = JSON.parse(localStorage.getItem(OLD_KEY) ?? "null");
+        if (old && typeof old === "object")
+          fill(
+            Object.entries(old).flatMap(([category, rows]) =>
+              (rows as Row[]).map((r) => ({ ...r, category })),
+            ),
+          );
+      }
+    } catch {}
+    recalc();
+
+    root.addEventListener("input", save);
+    root.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest("button");
+      if (!btn) return;
+      if (btn.matches("[data-add]")) {
+        q<HTMLInputElement>(addRow(), "[data-label]").focus();
+      } else if (btn.matches("[data-remove]")) {
+        btn.closest("[data-row]")!.remove();
+      } else if (btn.matches("[data-reset]")) {
+        fill(seed);
+        try {
+          localStorage.removeItem(KEY);
+          if (OLD_KEY) localStorage.removeItem(OLD_KEY);
+        } catch {}
+        recalc();
+        return;
+      } else return;
+      save();
+    });
+  };
+
+  document.querySelectorAll<HTMLElement>("[data-flow-form]").forEach(init);
+</script>

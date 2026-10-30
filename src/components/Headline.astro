@@ -1,0 +1,205 @@
+---
+// The headline: three KPI cards that double as the page's top-level tabs, the one-sentence credit
+// summary and the "Included in these totals" strip. Rendered from the seed, then kept live from
+// the forms (`readFlow` / `readCredit`) on every `flowchange`.
+import KpiCard from "./KpiCard.astro";
+import type { CreditStore, InvestmentStore, Maybe } from "../data/types";
+import { mxn } from "../lib/format";
+import { summarize, summarySentence } from "../lib/credit";
+import { investedNote, summarizeInvestments } from "../lib/investments";
+import { liquidNetWorth } from "../lib/networth";
+
+interface Props {
+  /** Seed totals (monthly) from finance.ts. */
+  income: number;
+  spend: number;
+  /** What the accounts in finance.ts hold today. */
+  assets: number;
+  seedCredit: CreditStore;
+  seedInvestments: InvestmentStore;
+  /** Build-time USD→MXN rate, so a dollar portfolio is valued like the editor values it. */
+  usdMxn: Maybe;
+  /** ISO date of that rate, to warn when it is old. */
+  fxDate: string | null;
+  /** `data-flow-id`s of the forms read live. */
+  inflows: string;
+  outflows: string;
+  credit: string;
+  investments: string;
+}
+const { income, spend, assets, seedCredit, seedInvestments, usdMxn, fxDate, inflows, outflows, credit, investments } = Astro.props;
+const monthly = income - spend;
+const s = summarize(seedCredit);
+const inv = summarizeInvestments(seedInvestments, usdMxn);
+const worth = liquidNetWorth(assets, inv, s);
+const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-inflow/10 via-surface to-surface";
+---
+
+<div
+  class="grid gap-3"
+  data-headline
+  data-in={inflows}
+  data-out={outflows}
+  data-credit={credit}
+  data-investments={investments}
+  data-assets={assets}
+  data-fx-date={fxDate ?? ""}
+  data-featured={featured}
+>
+  <section class="grid grid-cols-2 md:grid-cols-4 gap-3" role="tablist" aria-label="Finance sections" data-hash>
+    <KpiCard
+      kpi="monthly"
+      label="Monthly balance"
+      value={mxn(monthly)}
+      note={`${mxn(income)} in · ${mxn(spend)} out`}
+      hint="Incomes minus expenses in a typical month, before credit payments."
+      featured={monthly >= 0}
+      status={monthly >= 0 ? undefined : "alert"}
+      tab="balance"
+      selected
+      class="col-span-2 md:col-span-1"
+    />
+    <KpiCard
+      kpi="owed"
+      label="Owed on credit"
+      value={mxn(s.owedKnown)}
+      note="No credit accounts added"
+      hint="What your cards and loans still need paid, MSI (interest-free installments) included."
+      tab="debt"
+    />
+    <KpiCard
+      kpi="worth"
+      label="Liquid net worth"
+      value={worth.value == null ? "$—" : mxn(worth.value)}
+      note={worth.note}
+      hint="Accounts plus portfolio and fixed income, minus what you owe on credit. PPR is left out: it is locked until retirement."
+      tab="accounts"
+    />
+    <KpiCard
+      kpi="invested"
+      label="Invested"
+      value={mxn(inv.value)}
+      note={investedNote(inv)}
+      hint="Portfolio, fixed income and PPR at today's value."
+      tab="investments"
+      class="col-span-2 md:col-span-1"
+    />
+  </section>
+
+  <section aria-label="Credit included in these totals" class="grid gap-2 px-1">
+    <p class="text-[15px]" data-summary aria-live="polite">{summarySentence(s)}</p>
+    <p class="text-[13px] font-medium text-outflow" data-fx-warning role="status" hidden></p>
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <span class="label">Included in these totals</span>
+      <ul class="flex flex-wrap gap-2" data-chips></ul>
+      <button
+        data-chips-empty
+        type="button"
+        class="rounded-lg px-2.5 py-1 -ml-1 text-[13px] font-medium text-brand hover:text-brand-hover hover:bg-brand/10 transition-colors cursor-pointer"
+      >
+        No cards or loans yet: add them in Debt
+      </button>
+    </div>
+  </section>
+</div>
+
+<script>
+  import { mxn } from "../lib/format";
+  import { toMonthly } from "../lib/income";
+  import { readCredit, readFlow, readInvestments, readUsdMxn } from "../lib/flows";
+  import { summarize, summarySentence } from "../lib/credit";
+  import { investedNote, summarizeInvestments } from "../lib/investments";
+  import { liquidNetWorth } from "../lib/networth";
+  import { fxWarning } from "../lib/fx";
+
+  const init = (root: HTMLElement) => {
+    const q = <T extends Element = HTMLElement>(sel: string, el: ParentNode = root) => el.querySelector<T>(sel)!;
+    const assets = Number(root.dataset.assets);
+    const featured = root.dataset.featured!.split(" ");
+    const total = (id: string) => readFlow(id).reduce((a, l) => a + toMonthly(l.amount ?? 0, l.freq), 0);
+
+    const setCard = (kpi: string, value: string, note: string, status?: "healthy" | "alert") => {
+      const card = q(`[data-kpi="${kpi}"]`);
+      q("[data-kpi-value]", card).textContent = value;
+      q("[data-kpi-note]", card).textContent = note;
+      const dot = q("[data-kpi-dot]", card);
+      dot.hidden = !status;
+      dot.classList.toggle("bg-inflow", status === "healthy");
+      dot.classList.toggle("bg-outflow", status === "alert");
+      return card;
+    };
+
+    const openDebt = (accountId?: string) => {
+      document.getElementById("tab-debt")?.click();
+      const item = accountId
+        ? document.querySelector<HTMLElement>(`[data-account][data-id="${accountId}"]`)
+        : null;
+      const target =
+        item?.querySelector<HTMLInputElement>('[data-group]:not([hidden]) [data-f]:placeholder-shown') ??
+        item?.querySelector<HTMLElement>("[data-f]") ??
+        document.querySelector<HTMLElement>("[data-credit-editor] [data-add]");
+      target?.scrollIntoView({ block: "center" });
+      target?.focus({ preventScroll: true });
+    };
+
+    const render = () => {
+      const income = total(root.dataset.in!);
+      const spend = total(root.dataset.out!);
+      const monthly = income - spend;
+      const s = summarize(readCredit(root.dataset.credit!));
+      const n = s.views.length;
+
+      const card = setCard("monthly", mxn(monthly), `${mxn(income)} in · ${mxn(spend)} out`, monthly < 0 ? "alert" : undefined);
+      featured.forEach((c) => card.classList.toggle(c, monthly >= 0));
+      q("small", card).classList.toggle("text-inflow", monthly >= 0);
+      q("small", card).classList.toggle("font-medium", monthly >= 0);
+      q("small", card).classList.toggle("text-ink-2", monthly < 0);
+
+      const missing = `${s.unknown} ${s.unknown === 1 ? "account" : "accounts"} with no balance entered`;
+      if (!n) setCard("owed", "$0", "No credit accounts added");
+      else if (!s.complete) setCard("owed", "$—", s.owedKnown ? `${mxn(s.owedKnown)} known · ${missing}` : missing, "alert");
+      else if (s.owedKnown === 0) setCard("owed", "$0", "Nothing owed", "healthy");
+      else setCard("owed", mxn(s.owedKnown), `${mxn(s.payments)} a month in payments`, "alert");
+
+      const inv = summarizeInvestments(readInvestments(root.dataset.investments!), readUsdMxn(root.dataset.investments!));
+      const worth = liquidNetWorth(assets, inv, s);
+      setCard("worth", worth.value == null ? "$—" : mxn(worth.value), worth.note);
+      setCard("invested", inv.unknown && !inv.value ? "$—" : mxn(inv.value), investedNote(inv));
+
+      const dollars = readInvestments(root.dataset.investments!).portfolio?.currency === "USD";
+      const warning = dollars ? fxWarning(root.dataset.fxDate) : null;
+      q("[data-fx-warning]").textContent = warning ?? "";
+      q("[data-fx-warning]").hidden = !warning;
+
+      q("[data-summary]").textContent = summarySentence(s);
+      q("[data-chips-empty]").hidden = n > 0;
+      q("[data-chips]").replaceChildren(
+        ...s.views.map((v) => {
+          const li = document.createElement("li");
+          const b = document.createElement("button");
+          b.type = "button";
+          const ok = v.gaps.length === 0;
+          b.className = `inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] ring-1 cursor-pointer transition-colors ${
+            ok ? "bg-surface ring-line text-ink hover:ring-ink-3/60" : "bg-outflow/8 ring-outflow/30 text-ink hover:bg-outflow/12"
+          }`;
+          const mark = document.createElement("span");
+          mark.setAttribute("aria-hidden", "true");
+          mark.className = ok ? "text-inflow font-bold" : "text-outflow font-bold";
+          mark.textContent = ok ? "✓" : "!";
+          const text = document.createElement("span");
+          text.textContent = `${v.name}: ${ok ? "complete" : v.gaps.join(", ")}`;
+          b.append(mark, text);
+          b.addEventListener("click", () => openDebt(v.account.id));
+          li.append(b);
+          return li;
+        }),
+      );
+    };
+
+    q("[data-chips-empty]").addEventListener("click", () => openDebt());
+    document.addEventListener("flowchange", render);
+    render();
+  };
+
+  document.querySelectorAll<HTMLElement>("[data-headline]").forEach(init);
+</script>

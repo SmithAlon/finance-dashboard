@@ -1,0 +1,33 @@
+---
+// Behaviour for every [role=tablist] on the page: the clickable KPI cards and nested switches
+// such as the Balance tab's Incomes | Expenses. Only a list with `data-hash` mirrors its tab to the URL.
+---
+<script>
+  document.querySelectorAll<HTMLElement>('[role=tablist]').forEach((list) => {
+    const tabBtns = [...list.querySelectorAll<HTMLButtonElement>('[role=tab]')];
+    const useHash = list.hasAttribute('data-hash');
+
+    function selectTab(id: string, focus = false) {
+      tabBtns.forEach((b) => {
+        const on = b.dataset.tab === id;
+        b.setAttribute('aria-selected', String(on));
+        b.tabIndex = on ? 0 : -1;
+        const panel = document.getElementById(b.getAttribute('aria-controls')!);
+        if (panel) panel.hidden = !on;
+        if (on && focus) b.focus();
+      });
+      if (useHash) history.replaceState(null, '', '#' + id);
+    }
+
+    tabBtns.forEach((b, i) => {
+      b.addEventListener('click', () => selectTab(b.dataset.tab!));
+      b.addEventListener('keydown', (e) => {
+        const d = ({ ArrowRight: 1, ArrowLeft: -1 } as Record<string, number>)[e.key];
+        if (d) selectTab(tabBtns[(i + d + tabBtns.length) % tabBtns.length].dataset.tab!, true);
+      });
+    });
+
+    const initial = location.hash.slice(1);
+    if (useHash && tabBtns.some((b) => b.dataset.tab === initial)) selectTab(initial);
+  });
+</script>

@@ -1,0 +1,66 @@
+---
+name: finance-dashboard-conventions
+description: The architecture and design-system rules for the finance-dashboard Astro + Tailwind v4 project. Use before adding or changing anything in this repo (a new tab, card, KPI, form, colour, data field, utility class or component), when reviewing a change for consistency, or when the user says "keep the design/architecture", "follow the existing patterns", "add a section like the others", or asks where something should live, even if they don't mention conventions.
+---
+
+# Finance dashboard: architecture and design conventions
+
+This project stays easy to change because each kind of decision has one home. Before editing, find the home; after editing, check the change did not leak a decision into the wrong place.
+
+## Architecture: where things live
+
+| Decision | Home | Rule |
+|---|---|---|
+| Numbers and labels the user owns (incomes, outflows, accounts, credit, goals, action plan) | `src/data/finance.ts` | Single source of truth. Never hard-code an amount in a component. Everything derived is computed in `src/pages/index.astro` frontmatter. |
+| Shape of that data | `src/data/types.ts` | Domain types only. |
+| Shapes computed for the UI (`Allocation`, `Tab`, `TabId`) | `src/types.ts` | View types only. Don't mix with domain types. |
+| Formatting and pure maths (`mxn`, `pct`, frequency to monthly/annual, credit status and payoff) | `src/lib/*.ts` | Pure functions, shared by server markup and client scripts. Don't re-implement `toLocaleString` inline. |
+| Semantic colour to Tailwind classes | `src/lib/tone.ts` | Data carries a tone name (`'inflow'`); components look classes up. |
+| Colours, fonts, shadows, repeated patterns | `src/styles/global.css` | Tokens and `@utility` only; see the design reference. |
+| One visual section | `src/components/<Name>.astro` | Props in, markup out. No data imports inside presentational components. |
+| Page composition and derived numbers | `src/pages/index.astro` | Imports data, computes, passes props. Keep it assembly, not markup. |
+
+Component rules:
+- A component takes everything it displays as props (see `BalanceSheet`). Only the interactive components (`FlowForm`, `CreditAccounts`, `Headline`, `BalanceView`, `DebtCalculator`, `DebtSummary`) import helpers, and only from `lib/`. A new flat categorised money list is another `<FlowForm>` with its own `id`, categories and copy, not a new component.
+- Credit is not a flat list. `CreditAccounts` (id `credit`) edits a `CreditStore`: cards (with MSI plans linked by `cardId`) and loans, typed in `src/data/types.ts`. All credit maths and wording (status, gaps, payoff, the summary sentence, migration from the old `finance:credits:v2` rows) lives in `src/lib/credit.ts`; components never re-derive it. The editor has a This month | Card setup switch: each account is two rows sharing a `data-id`, its terms in `CreditSetupItem` (bank, type, limit, rate, CAT, days; a loan's fixed payment and end date) and its statement figures and MSI in `CreditBalanceItem`, both built from `CreditField`. A new credit field goes in whichever of the two matches how often it changes. Stored fields with no input (e.g. `statementBalance`) are kept from the loaded store, not wiped.
+- **Unknown is not zero.** A money field that was never entered is `null` (`Maybe`). Totals that include one are partial ("$X owed (2 of 3 accounts)"), real capital and liquid net worth show "$—" / "can't compute", and charts draw a dashed "not entered" box. Only an explicit 0 may produce "Nothing owed".
+- Cash vs net worth: expenses (including spending done on a card) lower cash and net worth; credit payments lower cash and debt equally, so they leave real capital unchanged (only interest costs net worth).
+- Investments is `Investments.astro` (id `investments`, key `finance:investments:v4`): an `InvestmentStore` of the GBM `portfolio` (imported, read-only), fixed income (invested, value, rate, maturity) and PPRs (contributed, value, contribution + frequency), the last two typed in, each row an `InvestmentRow`. Value, cost, gain and wording live in `src/lib/investments.ts`; a blank value makes the bucket partial. Its portfolio and fixed income (not PPR, which is locked until retirement) count toward liquid net worth through `liquidNetWorth` in `src/lib/networth.ts`, shared by the Headline's server markup and script; an investment with no known value makes the card "$—" / "Can't compute". Older v3/v2 stores (hand-typed holdings priced from Yahoo) keep only their fixed income and PPRs on load. A PPR carries a user-entered savings routine (`contribution` + `frequency`, incl. `semimonth` "twice a month"): the monthly figure is `contributionPerMonth`, the hero note adds "$X a month going in", and nothing about a user's routine is seeded in `finance.ts`. It is a transfer into assets, not an expense, so it does not touch the Balance tab. A pre-routine stored PPR with a single `monthly` figure loads as a monthly contribution (`migratePpr`). Editor roots use a distinct hook (`data-credit-editor`, `data-investment-editor`) so they never collide with the `data-<id>` attributes other roots carry.
+- The portfolio comes from GBM's CSV export ("Detalle Portafolio"), parsed by `parseGbmCsv` in `src/lib/gbm.ts` (pure: sections with a title row, an "Emisora/Fondo" header and rows until a blank line; money "$1,234.56", títulos with a decimal comma, GBM's "-" is null; the Liquidez row is cash with no cost). The seed is `src/data/gbm-portfolio.csv` (exported from `finance.ts` with `?raw`, plus its original file name, whose 13-digit timestamp dates it) parsed in `index.astro`; the Portfolio panel's "Import GBM CSV" replaces it in the browser. A file name or section mentioning USA means dollars. The table shows GBM's figures in the account's currency (`money` in `format.ts`); everything else is in pesos.
+- The Investments hero is a donut (`sliceFills` in `lib/tone.ts`, slices from `summarizeInvestments(...).slices`): each GBM position in export order, then fixed income and PPR, on slots c0…c5 (brand, teal, passive, amber, transfer, pink, an order validated as a ring for CVD separation; brand next to passive failed), positions past the slots fold into "Other positions" (`ink-2`) and cash is `ink-3`. Colour follows the entity's place, not its size. Every slice has a legend row with amount and share; hovering or focusing a slice or row names it in the centre. Amber, teal and pink (`chart-*` tokens) exist only for this chart.
+- No market prices are fetched: GBM's export carries them. `scripts/fetch-prices.mjs` only fetches USD→MXN (Frankfurter, at build time) into `src/data/prices.json` (`PriceFeed`). The editor carries the rate as `data-usd-mxn` and the Headline reads it with `readUsdMxn(id)`, so both value a dollar portfolio the same way. The site is static, so the rate only moves on rebuild: `src/lib/fx.ts` computes its age against the browser's date, the portfolio note shows it, and the Headline shows a warning (`data-fx-warning`, rose text) once it is older than `FX_STALE_DAYS` (7) and the portfolio is in dollars; without a rate a dollar portfolio's peso value is unknown, never 0.
+- Sections that need another form's live state call `readFlow(id)` / `readCredit(id)` from `src/lib/flows.ts` (reads `[data-flow-id=<id>]`'s `data-state`, falling back to `data-seed`) and re-read on the bubbling `flowchange` event that `FlowForm` and `CreditAccounts` fire after every recalc. The headline KPI cards are live this way (`Headline.astro`); projection maths lives in `src/lib/projection.ts`.
+- Top-level tabs: Balance, Debt, Accounts, Investments. The Balance tab is `BalanceView`: the live incomes − expenses total first, then an Incomes | Expenses switch over the two FlowForms passed in its `inflows` / `outflows` slots.
+- New tab: add the id to `TabId`, a `<KpiCard tab=...>` in the KPI tablist in `index.astro`, then wrap the content in `<TabPanel id=... hidden>`. The first panel is visible, the rest `hidden`. `Tabs.astro` handles every `[role=tablist]` (clicks, arrow keys, panels via `aria-controls`); only the list marked `data-hash` writes `#hash`. A nested switch is another `role=tablist` with the segmented-pill styling, never a second tab script.
+- Client behaviour lives in a `<script>` at the bottom of the component that owns the markup, finds its root through a `data-*` attribute, and does nothing if the root is missing. Pass server data in as a `data-*` JSON attribute, not through `define:vars`, so the script stays bundled and typed.
+- Hook scripts to `data-*` attributes (`data-row`, `data-total`), never to Tailwind classes, so restyling cannot break behaviour.
+- Rows added by JS are cloned from a `<template>` that renders the same component as the server rows, so server and client markup cannot drift.
+- Persisted client state: one namespaced, versioned localStorage key per form (`finance:<id>:v2`, e.g. `finance:inflows:v2`; credit is `finance:credit:v3`), every access in try/catch, and a visible "reset to saved profile" that restores the `finance.ts` values. Bump the version when the stored shape changes.
+- Money is MXN, formatted with `mxn` (negatives get a true minus, "−$1,200"). Amounts that can be entered at different frequencies are stored with a frequency and converted to monthly for totals; annual figures use `toAnnual`, so a one-time amount counts once, not twelve times.
+- Charts: follow the `dataviz` skill. Emerald/rose fail deuteranopia separation (ΔE 5.6), so outflow bars are also striped and every value carries its sign; each chart has a one-sentence takeaway above it and a table or tooltip with the full names.
+
+## Design: the short version
+
+Banking tone: calm, tinted-navy dark theme by default with a clean light theme from `prefers-color-scheme`; one hero element per view; colour marks direction and category, not alarm. Full tokens, patterns and do/don't list are in `references/design-system.md`. Read it before touching any visual detail.
+
+Non-negotiables:
+1. Use token classes (`bg-surface`, `text-ink-2`, `border-line`, `text-inflow`...). No hex values and no raw Tailwind palette colours (`bg-gray-800`, `text-green-500`) in components.
+2. Money uses the `mono` utility (tabular digits). Labels use `label`; card shells use `card`; inputs use `field`; tables use `data-table`.
+3. Colour by meaning: inflow = emerald, outflow = rose, transfers/secondary = sky, passive/investing = indigo, brand actions = blue. Do not reuse a meaning colour decoratively.
+4. Layout works at 390px with no horizontal scroll, and in both colour schemes.
+
+## Change checklist
+
+1. Identified the home for each decision in the table above.
+2. No amount, label or colour literal in a component or page that belongs in `finance.ts`, `tone.ts` or `global.css`.
+3. New repeated class pattern (3+ uses)? Make it an `@utility` instead of copying class strings.
+4. `npm run build` passes; run the `headless-ui-check` skill for dark, light and 390px, and click through every tab touched. Types are checked by the build only (TypeScript is not installed), so state that rather than claiming a type check.
+5. If you introduce a new convention, add it here or to the reference so the next change follows it.
+
+## Known loose ends (do not "fix" silently, ask first)
+
+- `finance.ts` holds sample data for a fictional user; keep it free of any real person's numbers or names.
+- Both `package-lock.json` and `pnpm-lock.yaml` exist; use `npm` unless told otherwise.
+- The Investable surplus tab (50/30/20 split) was replaced by the Debt tab; `framework` remains in `finance.ts` unused.
+- Liquid net worth adds the account balances in `finance.ts` to the investments above; the projection's "Starting cash" is a separate, editable number. Keep real brokerage cash out of the accounts list, because the GBM portfolio already counts it.
+- The projection/goals section and its script were removed; `goals` and `defaults` remain in `finance.ts` for a future restore.

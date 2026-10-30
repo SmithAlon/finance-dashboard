@@ -1,0 +1,26 @@
+---
+// One labelled number or date input, filled by its editor's script through `data-f` (credit and investment editors).
+
+export interface Props {
+  f: string;
+  label: string;
+  kind?: "money" | "pct" | "day" | "date";
+  placeholder?: string;
+  title?: string;
+}
+const { f, label, kind, placeholder, title } = Astro.props;
+---
+
+<label class="grid gap-1 content-start" title={title}>
+  <span class="label">{label}</span>
+  <input
+    data-f={f}
+    class:list={["field", kind !== "date" && "mono text-right"]}
+    type={kind === "date" ? "date" : "number"}
+    inputmode={kind === "date" ? undefined : "decimal"}
+    min={kind === "day" ? 1 : kind === "date" ? undefined : 0}
+    max={kind === "day" ? 31 : undefined}
+    step={kind === "day" ? 1 : "any"}
+    placeholder={placeholder ?? (kind === "date" ? undefined : "—")}
+  />
+</label>

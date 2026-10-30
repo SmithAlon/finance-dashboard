@@ -1,0 +1,413 @@
+---
+// The Debt tab's credit editor: cards (with their MSI plans) and loans. Each account has two rows
+// with the same `data-id`: its terms in Card setup and its statement figures in This month.
+// Publishes its live store on `data-state` and fires `flowchange`, like FlowForm, so other
+// sections can `readCredit(id)`.
+import CreditBalanceItem from "./CreditBalanceItem.astro";
+import CreditSetupItem from "./CreditSetupItem.astro";
+import TabPanel from "./TabPanel.astro";
+import type { CreditStore } from "../data/types";
+import type { CreditTabId } from "../types";
+import { tones } from "../lib/tone";
+
+interface Props {
+  /** `data-flow-id` and localStorage prefix. */
+  id: string;
+  /** Starting accounts; restored on reset. */
+  seed: CreditStore;
+  /** Key of the old flat credit list, migrated on first load. */
+  legacyKey?: string;
+}
+const { id, seed, legacyKey } = Astro.props;
+const views: { id: CreditTabId; label: string }[] = [
+  { id: "credit-month", label: "This month" },
+  { id: "credit-setup", label: "Card setup" },
+];
+const addBtn =
+  "inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-brand hover:text-brand-hover hover:bg-brand/10 transition-colors cursor-pointer";
+---
+
+<div
+  class="grid gap-4"
+  data-credit-editor
+  data-flow-id={id}
+  data-key={`finance:${id}:v3`}
+  data-legacy-key={legacyKey}
+  data-seed={JSON.stringify(seed)}
+  data-badges={JSON.stringify({
+    free: tones.inflow.badge,
+    costing: tones.outflow.badge,
+    "paid-monthly": tones.transfer.badge,
+    unknown: tones.neutral.badge,
+    nothing: tones.neutral.badge,
+  })}
+>
+  <section class="card" aria-labelledby={`${id}-title`}>
+    <header class="flex flex-wrap items-start justify-between gap-3 mb-1.5">
+      <h2 id={`${id}-title`} class="text-2xl">Credit cards & loans</h2>
+      <button data-reset type="button" class={addBtn}>Reset to saved profile</button>
+    </header>
+    <p class="sub">
+      Set each card or loan up once, then update what you owe when a statement arrives. If you don't know a balance,
+      leave it blank: it shows as missing, never as $0. Type 0 when you owe nothing.
+    </p>
+
+    <div data-migration hidden class="mb-4 rounded-xl border border-transfer/30 bg-transfer/8 p-3.5 text-[13px]">
+      <p class="font-semibold mb-1">Your old credit list was moved to the new format</p>
+      <ul data-migration-notes class="list-disc pl-5 grid gap-0.5 text-ink-2"></ul>
+      <button data-dismiss type="button" class:list={[addBtn, "mt-1.5 -ml-2.5"]}>Got it</button>
+    </div>
+
+    <div
+      role="tablist"
+      aria-label="Credit views"
+      class="inline-flex w-fit gap-1 p-1 mb-4 bg-surface border border-line rounded-xl"
+    >
+      {
+        views.map((v, i) => (
+          <button
+            type="button"
+            role="tab"
+            id={`tab-${v.id}`}
+            aria-controls={`panel-${v.id}`}
+            aria-selected={i === 0 ? "true" : "false"}
+            tabindex={i === 0 ? 0 : -1}
+            data-tab={v.id}
+            class="flex items-center rounded-lg px-3.5 py-1.5 text-[13px] font-medium text-ink-2 hover:text-ink transition-colors cursor-pointer aria-selected:bg-surface-2 aria-selected:text-ink aria-selected:ring-1 aria-selected:ring-line"
+          >
+            {v.label}
+          </button>
+        ))
+      }
+    </div>
+
+    <TabPanel id="credit-month">
+      <ul data-accounts class="grid gap-3"></ul>
+      <p data-empty class="text-ink-2 text-[13px] py-2">
+        No cards or loans yet.
+        <button data-goto-setup type="button" class:list={[addBtn, "-ml-1"]}>Set one up</button>
+      </p>
+    </TabPanel>
+
+    <TabPanel id="credit-setup" hidden>
+      <p class="sub">The terms from your contract: they rarely change.</p>
+      <ul data-setup-list class="grid gap-3"></ul>
+      <p data-setup-empty class="text-ink-2 text-[13px] py-2">No cards or loans yet.</p>
+      <div class="flex flex-wrap gap-1 mt-3 -ml-2.5">
+        <button data-add="card" type="button" class={addBtn}>+ Add credit card</button>
+        <button data-add="loan" type="button" class={addBtn}>+ Add loan</button>
+      </div>
+    </TabPanel>
+  </section>
+
+  <section class:list={["card", tones.outflow.hero]} aria-labelledby={`${id}-total`}>
+    <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
+      <div class="grid gap-0.5">
+        <span id={`${id}-total`} class="label">Credit payments this month</span>
+        <b class="mono text-[34px]" data-payments aria-live="polite">$0</b>
+      </div>
+      <span class="text-ink-2 text-[13px]" data-owed-text></span>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby={`${id}-due`}>
+    <h2 id={`${id}-due`} class="text-xl mb-1" data-due-title>Due this month</h2>
+    <p class="sub">Pay the first amount to avoid interest; the minimum keeps the account current.</p>
+    <table class="data-table">
+      <tbody data-due-rows></tbody>
+    </table>
+    <p data-due-empty class="text-ink-2 text-[13px] py-2">
+      No due dates yet. Add a payment due day to a card or loan to see it here.
+    </p>
+  </section>
+
+  <template data-account-template><CreditBalanceItem /></template>
+  <template data-setup-template><CreditSetupItem /></template>
+  <template data-msi-template
+    ><li data-msi class="grid grid-cols-[1fr_1fr_36px] md:grid-cols-[1fr_130px_110px_36px] gap-2 items-center py-1.5">
+      <input
+        data-m="merchant"
+        class="field col-span-2 md:col-span-1"
+        type="text"
+        placeholder="What you bought"
+        aria-label="MSI purchase"
+      />
+      <button
+        data-remove-msi
+        type="button"
+        class="size-9 justify-self-end md:order-last rounded-lg text-ink-2 hover:text-outflow hover:bg-outflow/10 transition-colors cursor-pointer"
+        aria-label="Remove MSI purchase"
+        title="Remove">×</button
+      >
+      <input
+        data-m="monthlyAmount"
+        class="field mono text-right"
+        type="number"
+        inputmode="decimal"
+        min="0"
+        step="any"
+        placeholder="Per month"
+        aria-label="Per month (MXN)"
+      />
+      <input
+        data-m="monthsRemaining"
+        class="field mono text-right"
+        type="number"
+        inputmode="numeric"
+        min="0"
+        step="1"
+        placeholder="Months left"
+        aria-label="Months left"
+      />
+    </li></template
+  >
+</div>
+
+<script>
+  import type { CardAccount, CreditAccount, CreditStore, LoanAccount, MsiPlan } from "../data/types";
+  import {
+    blankCard,
+    blankLoan,
+    duesThisMonth,
+    migrateLegacy,
+    newId,
+    owedText,
+    statusLabels,
+    summarize,
+    type CreditStatus,
+    type LegacyCreditRow,
+  } from "../lib/credit";
+  import { mxn } from "../lib/format";
+
+  const TEXT = new Set(["issuer", "issuerOther", "nickname", "type", "balanceUpdatedAt", "endDate", "merchant"]);
+  const DAYS = new Set(["dueDay", "cutoffDay", "monthsRemaining"]);
+  const BALANCES = new Set(["currentBalance", "remainingBalance"]);
+
+  const init = (root: HTMLElement) => {
+    const KEY = root.dataset.key!;
+    const OLD_KEY = root.dataset.legacyKey;
+    const NOTES_KEY = KEY + ":migration";
+    const seed: CreditStore = JSON.parse(root.dataset.seed!);
+    const badges: Record<CreditStatus, string> = JSON.parse(root.dataset.badges!);
+    const q = <T extends Element = HTMLElement>(el: ParentNode, sel: string) => el.querySelector<T>(sel)!;
+    const list = q(root, "[data-accounts]");
+    const setupList = q(root, "[data-setup-list]");
+    const accountTpl = q<HTMLTemplateElement>(root, "[data-account-template]");
+    const setupTpl = q<HTMLTemplateElement>(root, "[data-setup-template]");
+    const msiTpl = q<HTMLTemplateElement>(root, "[data-msi-template]");
+    const today = () => new Date();
+    const iso = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    const parse = (name: string, raw: string): unknown => {
+      if (TEXT.has(name)) return name === "balanceUpdatedAt" || name === "endDate" ? raw || null : raw;
+      if (raw === "") return null;
+      const n = Math.max(0, Number(raw) || 0);
+      return DAYS.has(name) ? Math.round(name === "monthsRemaining" ? n : Math.min(31, Math.max(1, n))) : n;
+    };
+    const fields = (el: ParentNode, attr: "f" | "m") => [...el.querySelectorAll<HTMLInputElement | HTMLSelectElement>(`[data-${attr}]`)];
+    const read = (els: (HTMLInputElement | HTMLSelectElement)[], attr: "f" | "m") =>
+      Object.fromEntries(els.map((el) => [el.dataset[attr]!, parse(el.dataset[attr]!, el.value)]));
+    const write = (els: (HTMLInputElement | HTMLSelectElement)[], attr: "f" | "m", data: Record<string, unknown>) =>
+      els.forEach((el) => {
+        const v = data[el.dataset[attr]!];
+        if (v !== undefined) el.value = v == null ? "" : String(v);
+      });
+
+    // Fields the editor no longer shows (e.g. statementBalance) are kept from the loaded store.
+    let loaded = new Map<string, CreditAccount>();
+    const monthOf = (id: string) => q(list, `[data-account][data-id="${id}"]`);
+
+    const syncVisibility = (setup: HTMLElement) => {
+      const type = q<HTMLSelectElement>(setup, '[data-f="type"]').value;
+      for (const item of [setup, monthOf(setup.dataset.id!)])
+        item.querySelectorAll<HTMLElement>("[data-group]").forEach((g) => (g.hidden = g.dataset.group !== type));
+      q(setup, "[data-other]").hidden = q<HTMLSelectElement>(setup, '[data-f="issuer"]').value !== "other";
+    };
+
+    const readStore = (): CreditStore => {
+      const accounts: CreditAccount[] = [];
+      const msi: MsiPlan[] = [];
+      setupList.querySelectorAll<HTMLElement>("[data-setup]").forEach((setup) => {
+        const id = setup.dataset.id!;
+        const item = monthOf(id);
+        const head = read(fields(q(setup, "[data-head]"), "f"), "f");
+        const type = head.type as CreditAccount["type"];
+        const group = `[data-group="${type}"]`;
+        const terms = read(fields(q(setup, group), "f"), "f");
+        const month = read([...fields(q(item, group), "f"), q<HTMLInputElement>(item, '[data-f="balanceUpdatedAt"]')], "f");
+        const blank = type === "loan" ? blankLoan(id) : blankCard(id);
+        const prev = loaded.get(id);
+        accounts.push({ ...blank, ...(prev?.type === type ? prev : {}), ...head, ...terms, ...month, id, type } as CreditAccount);
+        if (type === "card")
+          item.querySelectorAll<HTMLElement>("[data-msi]").forEach((row) =>
+            msi.push({ id: row.dataset.id!, cardId: id, ...(read(fields(row, "m"), "m") as Omit<MsiPlan, "id" | "cardId">) }),
+          );
+      });
+      return { accounts, msi };
+    };
+
+    const addMsi = (item: HTMLElement, plan?: MsiPlan) => {
+      const row = msiTpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
+      row.dataset.id = plan?.id ?? newId();
+      if (plan) write(fields(row, "m"), "m", plan as unknown as Record<string, unknown>);
+      q(item, "[data-msi-list]").append(row);
+      return row;
+    };
+
+    /** Adds the account's Card setup and This month rows; returns the setup row. */
+    const addAccount = (a: CreditAccount, plans: MsiPlan[] = []) => {
+      const setup = setupTpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
+      const item = accountTpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
+      setup.dataset.id = item.dataset.id = a.id;
+      // Both groups get the values they share (due day, rate, checked-on date) so switching type keeps them.
+      const values = { ...blankCard(), ...blankLoan(), ...a } as unknown as Record<string, unknown>;
+      write(fields(setup, "f"), "f", values);
+      write(fields(item, "f"), "f", values);
+      plans.forEach((p) => addMsi(item, p));
+      setupList.append(setup);
+      list.append(item);
+      syncVisibility(setup);
+      return setup;
+    };
+
+    const fill = (store: CreditStore) => {
+      loaded = new Map(store.accounts.map((a) => [a.id, a]));
+      list.replaceChildren();
+      setupList.replaceChildren();
+      store.accounts.forEach((a) => addAccount(a, store.msi.filter((p) => p.cardId === a.id)));
+    };
+
+    const recalc = () => {
+      const store = readStore();
+      const s = summarize(store, today());
+      s.views.forEach((v) => {
+        const item = monthOf(v.account.id);
+        const status = q(item, "[data-status]");
+        status.className = `inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-semibold ring-1 ${badges[v.status]}`;
+        status.textContent = statusLabels[v.status];
+        q(item, "[data-name]").textContent = v.name;
+        q(item, "[data-sentence]").textContent = v.sentence;
+        const checked = v.account.balanceUpdatedAt;
+        q(item, "[data-checked]").textContent = checked
+          ? `Balance checked ${new Date(checked + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+          : "Balance not checked yet";
+      });
+      q(root, "[data-empty]").hidden = s.views.length > 0;
+      q(root, "[data-setup-empty]").hidden = s.views.length > 0;
+      q(root, "[data-payments]").textContent = mxn(s.payments);
+      q(root, "[data-owed-text]").textContent = s.views.length
+        ? s.complete
+          ? owedText(s)
+          : `${owedText(s)} · ${s.unknown} not entered`
+        : "No accounts added";
+
+      const now = today();
+      q(root, "[data-due-title]").textContent = `Due in ${now.toLocaleDateString("en-US", { month: "long" })}`;
+      const dues = duesThisMonth(s, now);
+      const body = q(root, "[data-due-rows]");
+      body.replaceChildren(
+        ...dues.map((d) => {
+          const tr = document.createElement("tr");
+          const date = d.date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+          tr.innerHTML = `<td class="mono w-20"></td><td></td><td class="mono text-right"></td><td class="text-ink-2 text-[12px] text-right"></td>`;
+          const [c0, c1, c2, c3] = tr.children;
+          c0.textContent = date;
+          c1.textContent = d.name + (d.past ? " · date passed" : "");
+          c2.textContent = mxn(d.amount);
+          c3.textContent = d.minimum ? `min ${mxn(d.minimum)}` : "";
+          if (d.past) tr.classList.add("text-ink-2");
+          return tr;
+        }),
+      );
+      q(root, "[data-due-empty]").hidden = dues.length > 0;
+
+      root.dataset.state = JSON.stringify(store);
+      root.dispatchEvent(new CustomEvent("flowchange", { bubbles: true }));
+      return store;
+    };
+
+    const save = () => {
+      const store = recalc();
+      try {
+        localStorage.setItem(KEY, JSON.stringify(store));
+      } catch {}
+    };
+
+    const showNotes = (notes: string[]) => {
+      const box = q(root, "[data-migration]");
+      q(root, "[data-migration-notes]").replaceChildren(
+        ...notes.map((n) => Object.assign(document.createElement("li"), { textContent: n })),
+      );
+      box.hidden = notes.length === 0;
+    };
+
+    // Load: the saved v3 store, else migrate the old flat list once, else the seed.
+    let store = seed;
+    try {
+      const stored = JSON.parse(localStorage.getItem(KEY) ?? "null");
+      if (stored && Array.isArray(stored.accounts)) store = stored;
+      else if (OLD_KEY) {
+        const old: LegacyCreditRow[] | null = JSON.parse(localStorage.getItem(OLD_KEY) ?? "null");
+        if (Array.isArray(old) && old.length) {
+          const m = migrateLegacy(old, today());
+          store = m.store;
+          localStorage.setItem(KEY, JSON.stringify(store));
+          localStorage.setItem(NOTES_KEY, JSON.stringify(m.notes));
+        }
+      }
+      showNotes(JSON.parse(localStorage.getItem(NOTES_KEY) ?? "[]"));
+    } catch {}
+    fill(store);
+    recalc();
+
+    root.addEventListener("input", (e) => {
+      const el = e.target as HTMLElement;
+      const setup = el.closest<HTMLElement>("[data-setup]");
+      if (setup && (el.dataset.f === "type" || el.dataset.f === "issuer")) syncVisibility(setup);
+      // Editing a balance means it was just checked.
+      const item = el.closest<HTMLElement>("[data-account]");
+      if (item && BALANCES.has(el.dataset.f ?? "")) q<HTMLInputElement>(item, '[data-f="balanceUpdatedAt"]').value = iso(today());
+      save();
+    });
+
+    root.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest("button");
+      if (!btn) return;
+      if (btn.matches("[data-add]")) {
+        const a = btn.dataset.add === "loan" ? blankLoan() : blankCard();
+        q<HTMLElement>(addAccount(a), '[data-f="issuer"]').focus();
+      } else if (btn.matches("[data-remove-account]")) {
+        const setup = btn.closest<HTMLElement>("[data-setup]")!;
+        monthOf(setup.dataset.id!).remove();
+        setup.remove();
+      } else if (btn.matches("[data-goto-setup]")) {
+        q(root, '[role=tab][data-tab="credit-setup"]').click();
+        return;
+      } else if (btn.matches("[data-add-msi]")) {
+        q<HTMLElement>(addMsi(btn.closest<HTMLElement>("[data-account]")!), '[data-m="merchant"]').focus();
+      } else if (btn.matches("[data-remove-msi]")) {
+        btn.closest("[data-msi]")!.remove();
+      } else if (btn.matches("[data-dismiss]")) {
+        showNotes([]);
+        try {
+          localStorage.removeItem(NOTES_KEY);
+        } catch {}
+        return;
+      } else if (btn.matches("[data-reset]")) {
+        fill(seed);
+        try {
+          localStorage.removeItem(KEY);
+          if (OLD_KEY) localStorage.removeItem(OLD_KEY);
+          localStorage.removeItem(NOTES_KEY);
+        } catch {}
+        showNotes([]);
+        recalc();
+        return;
+      } else return;
+      save();
+    });
+  };
+
+  document.querySelectorAll<HTMLElement>("[data-credit-editor]").forEach(init);
+</script>

@@ -1,0 +1,9 @@
+Mercado de Capitales USA,,,,,,,,,,
+Emisora/Fondo,Títulos,Costo promedio,Precio mercado,PPP,Valor mercado,P / M,% Var. Hist.,% Var. Dia.,Imp X Cto,% Cartera
+VTI,"1,00000000",$100.00,$110.00,-,$110.00,$10.00,10.00%,0.50%,$100.00,55.00%
+VXUS,"0,30000000",$200.00,$210.00,-,$63.00,$3.00,5.00%,-0.20%,$60.00,31.50%
+BND,"0,40000000",$60.00,$60.00,-,$24.00,$0.00,0.00%,0.10%,$24.00,12.00%
+,,,,,,,,,,
+Liquidez,,,,,,,,,,
+Emisora/Fondo,Títulos,Costo promedio,Precio mercado,PPP,Valor mercado,P / M,% Var. Hist.,% Var. Dia.,Imp X Cto,% Cartera
+efectivo,-,-,-,-,$3.00,-,-,-,-,1.50%

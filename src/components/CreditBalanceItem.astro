@@ -1,0 +1,62 @@
+---
+// One credit card or loan in the credit editor's This month view: only the figures that change
+// with each statement. Its terms live in CreditSetupItem. Rendered only inside its <template>.
+import CreditField, { type Props as Field } from "./CreditField.astro";
+
+const card: Field[] = [
+  { f: "currentBalance", label: "Owed today", placeholder: "Not entered", title: "Everything on the card, MSI included. Type 0 if you owe nothing." },
+  { f: "plannedPayment", label: "You pay this month" },
+  { f: "payToAvoidInterest", label: "Pay to avoid interest", title: "Pago para no generar intereses, from your statement." },
+  { f: "minimumPayment", label: "Minimum payment" },
+];
+const loan: Field[] = [
+  { f: "remainingBalance", label: "Owed today", placeholder: "Not entered", title: "Type 0 if it's paid off." },
+];
+---
+
+<li data-account class="grid gap-4 rounded-xl border border-line bg-surface-2/40 p-4">
+  <div class="grid gap-1.5">
+    <p class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+      <b data-name class="text-[15px]"></b>
+      <span data-status class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-semibold ring-1"></span>
+    </p>
+    <p data-sentence class="text-[14px] text-ink-2" aria-live="polite"></p>
+  </div>
+
+  {
+    (["card", "loan"] as const).map((type) => (
+      <div data-group={type} hidden={type === "loan"} class="grid gap-4">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {(type === "card" ? card : loan).map((x) => <CreditField {...x} />)}
+        </div>
+        {type === "card" && (
+          <div class="grid gap-1.5">
+            <h4 class="text-[13px] font-semibold">Interest-free installments (MSI)</h4>
+            <p class="text-ink-2 text-[12.5px]">
+              MSI = meses sin intereses: a purchase split into equal monthly payments with no interest. Already part of
+              the card's balance above.
+            </p>
+            <div class="hidden md:grid grid-cols-[1fr_130px_110px_36px] gap-2 label pt-1">
+              <span>Purchase</span>
+              <span class="text-right">Per month</span>
+              <span class="text-right">Months left</span>
+            </div>
+            <ul data-msi-list />
+            <button
+              data-add-msi
+              type="button"
+              class="w-fit inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 -ml-2.5 text-[13px] font-medium text-brand hover:text-brand-hover hover:bg-brand/10 transition-colors cursor-pointer"
+            >
+              + Add MSI purchase
+            </button>
+          </div>
+        )}
+      </div>
+    ))
+  }
+
+  <p class="text-ink-3 text-[12px]">
+    <input data-f="balanceUpdatedAt" type="hidden" />
+    <span data-checked>Balance not checked yet</span>
+  </p>
+</li>

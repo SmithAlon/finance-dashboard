@@ -1,0 +1,508 @@
+---
+import type { ExpenseCategory } from "../data/types";
+import { mxn } from "../lib/format";
+
+interface Props {
+  /** Default starting balance: what the accounts hold today. */
+  balance: number;
+  /** `data-flow-id`s of the forms the projection reads live. */
+  inflows: string;
+  outflows: string;
+  credit: string;
+  /** Names for the expense groups in the month bridge. */
+  expenseCategories: ExpenseCategory[];
+}
+const { balance, inflows, outflows, credit, expenseCategories } = Astro.props;
+const horizons = [6, 12, 24];
+const stats = [
+  { id: "now", label: "Real capital today" },
+  { id: "debt", label: "Owed on credit today" },
+  { id: "free", label: "Debt-free" },
+  { id: "end", label: "Real capital at end" },
+];
+const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
+---
+
+<div
+  class="grid gap-4"
+  data-debt-calc
+  data-key="finance:debt:v1"
+  data-seed={JSON.stringify({ balance, horizon: 12 })}
+  data-in={inflows}
+  data-out={outflows}
+  data-credit={credit}
+  data-categories={JSON.stringify(Object.fromEntries(expenseCategories.map((c) => [c.id, c.label])))}
+>
+  <section class="card" aria-labelledby="debt-projection">
+    <header class="flex flex-wrap items-start justify-between gap-3 mb-1.5">
+      <h2 id="debt-projection" class="text-2xl">What you have vs. what you owe</h2>
+      <button
+        data-reset
+        type="button"
+        class="rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-brand hover:text-brand-hover hover:bg-brand/10 transition-colors cursor-pointer"
+      >
+        Reset to saved profile
+      </button>
+    </header>
+    <p class="sub">
+      Cash carried month to month: plus incomes, minus expenses and credit payments. Real capital = cash minus what
+      you still owe, the money that is really yours. Paying a card moves money from cash to debt, so it doesn't change
+      real capital; spending does.
+    </p>
+
+    <div class="grid grid-cols-2 md:grid-cols-[200px_160px] gap-3 mb-4">
+      <label class="grid gap-1">
+        <span class="label">Starting cash</span>
+        <input data-balance class="field mono text-right" type="number" inputmode="decimal" step="any" value={balance} />
+      </label>
+      <label class="grid gap-1">
+        <span class="label">Horizon</span>
+        <select data-horizon class="field">
+          {horizons.map((h) => <option value={h} selected={h === 12}>{h} months</option>)}
+        </select>
+      </label>
+    </div>
+
+    <dl class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      {
+        stats.map((s) => (
+          <div class="grid gap-0.5 content-start">
+            <dt class="label" data-stat-label={s.id}>{s.label}</dt>
+            <dd class="mono text-xl" data-stat={s.id}>{mxn(balance)}</dd>
+            <dd class="text-ink-2 text-[12px]" data-stat-note={s.id} />
+          </div>
+        ))
+      }
+    </dl>
+
+    <p class="font-medium mb-2" data-have-takeaway></p>
+    <ul class="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-ink-2 mb-3" data-legend>
+      <li class="flex items-center"><span class:list={[swatch, "bg-transfer"]}></span>Cash (above zero)</li>
+    </ul>
+    <div class="grid grid-cols-[44px_1fr] gap-1">
+      <div class="relative h-[200px] text-[11px] text-ink-2 mono" data-axis aria-hidden="true"></div>
+      <div class="relative h-[224px]" data-chart>
+        <div class="absolute inset-x-0 h-px bg-line" data-zero aria-hidden="true"></div>
+        <svg
+          class="absolute inset-x-0 top-0 h-[200px] w-full pointer-events-none overflow-visible z-10"
+          data-line-svg
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <polyline
+            data-capital-line
+            fill="none"
+            class="stroke-ink"
+            stroke-width="2"
+            stroke-linejoin="round"
+            stroke-linecap="round"
+            vector-effect="non-scaling-stroke"></polyline>
+        </svg>
+        <div class="absolute inset-0 flex" data-bars role="group" aria-label="Months: pick one to see its breakdown"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="debt-month" data-breakdown>
+    <header class="flex flex-wrap items-end justify-between gap-3 mb-2">
+      <div class="grid gap-0.5">
+        <span class="label">Month bridge</span>
+        <h2 id="debt-month" class="text-2xl" data-month-title>—</h2>
+      </div>
+      <span class="text-ink-2 text-[13px]">
+        Real capital <b class="mono text-ink" data-month-capital>—</b>
+      </span>
+    </header>
+    <p class="font-medium mb-1" data-bridge-takeaway></p>
+    <p class="text-ink-2 text-[12.5px] mb-3">
+      Each bar starts where the last one ended. Striped bars are money going out.
+    </p>
+    <div class="grid gap-1 mb-5" data-bridge role="list" aria-label="How the month's cash changes"></div>
+    <details class="group">
+      <summary class="cursor-pointer text-[13px] font-medium text-brand w-fit">Show as a table</summary>
+      <table class="data-table mt-2">
+        <tbody data-month-rows></tbody>
+      </table>
+    </details>
+  </section>
+
+  <template data-bar-template
+    ><button
+      type="button"
+      class="group relative flex-1 min-w-0 h-full cursor-pointer rounded-md hover:bg-surface-2/60 aria-pressed:bg-surface-2 focus-visible:z-40"
+      aria-pressed="false"
+    >
+      <span data-marks class="absolute inset-0"></span>
+      <span
+        data-bar-label
+        class="absolute bottom-0 inset-x-0 text-center text-[10px] md:text-[11px] text-ink-2 group-aria-pressed:text-ink group-aria-pressed:font-semibold"
+      ></span>
+      <span
+        data-tip
+        class="hidden group-hover:block group-focus-visible:block absolute bottom-full mb-1 z-30 w-max max-w-[240px] whitespace-pre-line text-left rounded-lg bg-surface-2 ring-1 ring-line px-2.5 py-1.5 text-[12px] text-ink shadow-card"
+      ></span>
+    </button></template
+  >
+</div>
+
+<script>
+  import { mxn } from "../lib/format";
+  import { project, type MonthProjection } from "../lib/projection";
+  import { readCredit, readFlow } from "../lib/flows";
+
+  type Saved = { balance: number; horizon: number };
+  type Step = { label: string; amount: number; kind: "total" | "in" | "out" | "credit"; detail?: string };
+
+  const UNKNOWN_PX = 14; // a "not entered" balance: a fixed dashed box, never a $0 bar
+  const GAP = 2;
+  const PLOT = 200; // px of plot; the 24px under it holds month labels
+  const HEADROOM = 18; // px above the tallest bar for its direct label
+  const OPACITY = [1, 0.7, 0.5, 0.35];
+  const STRIPES = "repeating-linear-gradient(135deg, var(--outflow) 0 4px, color-mix(in srgb, var(--outflow) 45%, transparent) 4px 7px)";
+
+  const signed = (n: number) => (n > 0 ? "+" : "") + mxn(n);
+  const compact = (n: number) => {
+    const a = Math.abs(n);
+    const v = a >= 1e6 ? `${+(a / 1e6).toFixed(1)}M` : a >= 1e3 ? `${+(a / 1e3).toFixed(a >= 1e4 ? 0 : 1)}K` : `${Math.round(a)}`;
+    return (n < 0 ? "−$" : "$") + v;
+  };
+
+  const init = (root: HTMLElement) => {
+    const KEY = root.dataset.key!;
+    const seed: Saved = JSON.parse(root.dataset.seed!);
+    const categories: Record<string, string> = JSON.parse(root.dataset.categories!);
+    const q = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
+    const balanceIn = q<HTMLInputElement>("[data-balance]");
+    const horizonIn = q<HTMLSelectElement>("[data-horizon]");
+    const bars = q("[data-bars]");
+    const barTpl = q<HTMLTemplateElement>("[data-bar-template]");
+    let selected = 0;
+    let months: MonthProjection[] = [];
+
+    const monthName = (m: number, style: "short" | "long") => {
+      const d = new Date();
+      d.setDate(1);
+      d.setMonth(d.getMonth() + m);
+      return d.toLocaleDateString("en-US", { month: style, year: style === "short" ? "2-digit" : "numeric" });
+    };
+    const monthYear = (m: number) => monthName(m, "long").replace(/^(\w{3})\w*/, "$1");
+    const el = (tag: string, cls = "", text = "") => {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text) e.textContent = text;
+      return e;
+    };
+    const missingText = (n: number) => `${n} ${n === 1 ? "balance" : "balances"} not entered`;
+
+    const save = () => {
+      try {
+        localStorage.setItem(KEY, JSON.stringify({ balance: Number(balanceIn.value) || 0, horizon: Number(horizonIn.value) }));
+      } catch {}
+    };
+
+    // Month bridge: opening → incomes → expense groups → credit payments by account → closing.
+    const steps = (p: MonthProjection): { group: string; steps: Step[] }[] => {
+      const byCat = new Map<string, { amount: number; items: { label: string; amount: number }[] }>();
+      for (const e of p.outflows) {
+        const name = categories[e.category ?? ""] ?? "Other expenses";
+        const g = byCat.get(name) ?? { amount: 0, items: [] };
+        g.amount += e.amount;
+        g.items.push(e);
+        byCat.set(name, g);
+      }
+      return [
+        { group: "", steps: [{ label: "Opening cash", amount: p.opening, kind: "total" }] },
+        { group: "Money in", steps: p.inflows.map((e) => ({ label: e.label, amount: e.amount, kind: "in" as const })) },
+        {
+          group: "Expenses",
+          // A group with one line shows that line's own name, so nothing hides behind a category.
+          steps: [...byCat].map(([label, g]) => ({
+            label: g.items.length === 1 ? `${g.items[0].label} (${label})` : label,
+            amount: -g.amount,
+            kind: "out" as const,
+            detail: g.items.map((i) => `${i.label}: ${mxn(-i.amount)}`).join("\n"),
+          })),
+        },
+        {
+          group: "Credit payments",
+          steps: p.credit.map((e) => ({
+            label: e.label,
+            amount: -e.amount,
+            kind: "credit" as const,
+            detail:
+              e.owedAfter == null
+                ? "Balance not entered, so what's left is unknown."
+                : e.owedAfter > 0
+                  ? `${mxn(e.owedAfter)} still owed after this payment.`
+                  : "Paid off with this payment.",
+          })),
+        },
+        { group: "", steps: [{ label: "Closing cash", amount: p.closing, kind: "total" }] },
+      ].filter((g) => g.steps.length);
+    };
+
+    const renderBridge = (p: MonthProjection) => {
+      const groups = steps(p);
+      // Running positions, so each bar floats from where the previous one ended.
+      let run = 0;
+      const placed = groups.map((g) => ({
+        group: g.group,
+        steps: g.steps.map((s) => {
+          const from = s.kind === "total" ? 0 : run;
+          const to = s.kind === "total" ? s.amount : run + s.amount;
+          run = to;
+          return { ...s, from, to };
+        }),
+      }));
+      const all = placed.flatMap((g) => g.steps.flatMap((s) => [s.from, s.to]));
+      const lo = Math.min(0, ...all);
+      const span = Math.max(0, ...all) - lo || 1;
+      const x = (v: number) => ((v - lo) / span) * 100;
+
+      const box = q("[data-bridge]");
+      box.replaceChildren();
+      for (const g of placed) {
+        if (g.group) box.append(el("div", "label pt-2", g.group));
+        for (const s of g.steps) {
+          const row = el("div", "group relative grid grid-cols-[minmax(0,38%)_1fr_auto] md:grid-cols-[220px_1fr_auto] items-center gap-3 rounded-md px-1 py-1 hover:bg-surface-2/60 focus-visible:bg-surface-2/60");
+          row.setAttribute("role", "listitem");
+          row.tabIndex = 0;
+          const value = s.kind === "total" ? mxn(s.amount) : signed(s.amount);
+          row.setAttribute("aria-label", `${s.label}: ${value}${s.detail ? ". " + s.detail.replace(/\n/g, ", ") : ""}`);
+          row.append(el("span", `text-[13px] leading-snug ${s.kind === "total" ? "font-semibold" : ""}`, s.label));
+          const track = el("span", "relative h-3.5");
+          const bar = el("span", "absolute inset-y-0 rounded-[4px] min-w-[2px]");
+          const [a, b] = [x(Math.min(s.from, s.to)), x(Math.max(s.from, s.to))];
+          bar.style.left = a + "%";
+          bar.style.width = b - a + "%";
+          if (s.kind === "out") bar.style.background = STRIPES;
+          else bar.classList.add(s.kind === "in" ? "bg-inflow" : s.kind === "credit" ? "bg-transfer" : "bg-ink-3");
+          track.append(bar);
+          row.append(track, el("b", `mono text-[13px] text-right ${s.kind === "total" ? "" : "font-medium"}`, value));
+          if (s.detail) {
+            const tip = el("span", "hidden group-hover:block group-focus-visible:block absolute right-1 top-full mt-0.5 z-30 w-max max-w-[280px] whitespace-pre-line rounded-lg bg-surface-2 ring-1 ring-line px-2.5 py-1.5 text-[12px] text-ink shadow-card", s.detail);
+            row.append(tip);
+          }
+          box.append(row);
+        }
+      }
+
+      const inSum = p.inflows.reduce((a, e) => a + e.amount, 0);
+      const outSum = p.outflows.reduce((a, e) => a + e.amount, 0);
+      const creditSum = p.credit.reduce((a, e) => a + e.amount, 0);
+      const diff = p.closing - p.opening;
+      const parts = [`${mxn(inSum)} came in`, `${mxn(outSum)} went to expenses`];
+      if (creditSum) parts.push(`${mxn(creditSum)} to credit payments`);
+      q("[data-bridge-takeaway]").textContent =
+        `In ${monthName(selected, "long").split(" ")[0]} your cash ${diff >= 0 ? "grows" : "shrinks"} by ${mxn(Math.abs(diff))}: ` +
+        parts.slice(0, -1).join(", ") + ` and ${parts[parts.length - 1]}.`;
+    };
+
+    const renderTable = (p: MonthProjection) => {
+      const body = q("[data-month-rows]");
+      body.replaceChildren();
+      const row = (label: string, amount: string, opts: { dot?: string; note?: string; strong?: boolean } = {}) => {
+        const tr = el("tr", opts.strong ? "font-semibold" : "");
+        const td = el("td");
+        if (opts.dot) td.append(el("span", `dot ${opts.dot}`));
+        td.append(label);
+        tr.append(td, el("td", "text-ink-2 text-[12px] text-right", opts.note ?? ""), el("td", "mono text-right w-28", amount));
+        body.append(tr);
+      };
+      row("Opening cash", mxn(p.opening), { strong: true });
+      p.inflows.forEach((e) => row(e.label, signed(e.amount), { dot: "bg-inflow" }));
+      p.outflows.forEach((e) => row(e.label, signed(-e.amount), { dot: "bg-outflow", note: categories[e.category ?? ""] ?? "" }));
+      p.credit.forEach((e) =>
+        row(e.label, signed(-e.amount), {
+          dot: "bg-transfer",
+          note: e.owedAfter == null ? "balance not entered" : e.owedAfter > 0 ? `${mxn(e.owedAfter)} left` : "paid off",
+        }),
+      );
+      row("Closing cash", mxn(p.closing), { strong: true });
+      row("Owed on credit after this month", p.unknown ? `${mxn(-p.debtKnown)}…` : mxn(-p.debtKnown), {
+        note: p.unknown ? `plus ${missingText(p.unknown)}` : "",
+      });
+      row("Real capital", p.capital == null ? "can't compute" : mxn(p.capital), { strong: true });
+    };
+
+    const select = (m: number) => {
+      selected = m;
+      bars.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", String(i === m)));
+      const p = months[m];
+      if (!p) return;
+      q("[data-month-title]").textContent = monthName(m, "long");
+      q("[data-month-capital]").textContent = p.capital == null ? "can't compute" : mxn(p.capital);
+      renderBridge(p);
+      renderTable(p);
+    };
+
+    const stat = (id: string, value: string, note = "") => {
+      q(`[data-stat="${id}"]`).textContent = value;
+      q(`[data-stat-note="${id}"]`).textContent = note;
+    };
+
+    const render = () => {
+      const start = Number(balanceIn.value) || 0;
+      const credit = readCredit(root.dataset.credit!);
+      months = project(start, Number(horizonIn.value), readFlow(root.dataset.in!), readFlow(root.dataset.out!), credit);
+      if (selected >= months.length) selected = 0;
+      const first = months[0];
+      const last = months[months.length - 1];
+      const endName = monthYear(months.length - 1);
+      const names = first.owed.map((o) => o.account);
+
+      // Owed today is the balance before this month's payment.
+      const owedToday = credit.accounts.map((a) => (a.type === "card" ? a.currentBalance : a.remainingBalance));
+      const unknownNow = owedToday.filter((o) => o == null).length;
+      const knownNow = owedToday.reduce<number>((s, o) => s + (o ?? 0), 0);
+      stat("now", unknownNow ? "Can't compute" : mxn(start - knownNow), unknownNow ? missingText(unknownNow) : "");
+      stat("debt", unknownNow ? "$—" : mxn(knownNow), unknownNow ? `${mxn(knownNow)} known · ${missingText(unknownNow)}` : names.length ? "" : "No accounts added");
+      const freeAt = months.findIndex((p) => !p.unknown && p.debtKnown < 0.5);
+      stat(
+        "free",
+        unknownNow ? "Unknown" : knownNow < 0.5 ? "Now" : freeAt < 0 ? `After ${endName}` : monthYear(freeAt),
+        unknownNow ? "needs every balance" : "",
+      );
+      q('[data-stat-label="end"]').textContent = `Real capital, ${endName}`;
+      stat("end", last.capital == null ? "Can't compute" : mxn(last.capital), last.capital == null ? missingText(last.unknown) : "");
+
+      // Takeaway above the chart.
+      const cashMove = `Cash ${last.closing >= first.opening ? "grows" : "falls"} from ${mxn(first.opening)} to ${mxn(last.closing)} by ${endName}`;
+      q("[data-have-takeaway]").textContent = !names.length
+        ? `${cashMove}. No cards or loans are entered, so nothing is shown below zero.`
+        : last.unknown
+          ? `${cashMove}; what you owe can't be charted until ${last.unknown === 1 ? "1 more balance is" : `${last.unknown} more balances are`} entered.`
+          : `${cashMove} while what you owe ${last.debtKnown <= knownNow ? "falls" : "grows"} from ${mxn(knownNow)} to ${mxn(last.debtKnown)}, leaving ${mxn(last.capital!)} of real capital.`;
+
+      // Legend: cash, each account (direct names), not-entered, real capital.
+      const legend = q("[data-legend]");
+      legend.replaceChildren(legend.firstElementChild!);
+      names.forEach((n, i) => {
+        const li = el("li", "flex items-center");
+        const sw = el("span", "inline-block size-3 rounded-[3px] mr-2 shrink-0 bg-outflow");
+        sw.style.opacity = String(OPACITY[Math.min(i, OPACITY.length - 1)]);
+        li.append(sw, `${n} owed (below zero)`);
+        legend.append(li);
+      });
+      if (last.unknown || first.unknown) {
+        const li = el("li", "flex items-center");
+        li.append(el("span", "inline-block size-3 rounded-[3px] mr-2 shrink-0 border border-dashed border-outflow"), "Balance not entered");
+        legend.append(li);
+      }
+      if (!first.unknown) {
+        const li = el("li", "flex items-center");
+        li.append(el("span", "inline-block w-4 mr-2 border-t-2 border-ink"), "Real capital");
+        legend.append(li);
+      }
+
+      // Scale: known money shares the plot; each unknown balance takes a fixed dashed box.
+      const unknownMax = Math.max(...months.map((p) => p.unknown));
+      const hi = Math.max(0, ...months.map((p) => Math.max(p.closing, p.capital ?? 0)));
+      const lo = Math.max(0, ...months.map((p) => Math.max(0, -p.closing) + p.debtKnown), ...months.map((p) => -(p.capital ?? 0)));
+      const reserved = unknownMax * (UNKNOWN_PX + GAP) + (lo || unknownMax ? GAP : 0);
+      const k = (PLOT - HEADROOM - reserved) / (hi + lo || 1);
+      const zero = HEADROOM + hi * k;
+      const yOf = (v: number) => zero - v * k;
+      q("[data-zero]").style.top = zero + "px";
+
+      const axis = q("[data-axis]");
+      axis.replaceChildren();
+      const ticks = [[hi, yOf(hi)], [0, zero], ...(lo ? [[-lo, yOf(-lo)]] : [])] as [number, number][];
+      for (const [v, top] of ticks) {
+        if (v !== 0 && Math.abs(top - zero) < 14) continue;
+        const t = el("span", "absolute right-1 -translate-y-1/2", compact(v));
+        t.style.top = top + "px";
+        axis.append(t);
+      }
+
+      bars.replaceChildren();
+      const points: string[] = [];
+      const dense = months.length > 12;
+      months.forEach((p, i) => {
+        const btn = barTpl.content.firstElementChild!.cloneNode(true) as HTMLButtonElement;
+        const marks = btn.querySelector<HTMLElement>("[data-marks]")!;
+        const mark = (top: number, height: number, cls: string) => {
+          const m = el("span", `absolute left-1/2 -translate-x-1/2 w-[min(24px,60%)] ${cls}`);
+          m.style.top = top + "px";
+          m.style.height = Math.max(height, 2) + "px";
+          marks.append(m);
+          return m;
+        };
+        const cashH = Math.abs(p.closing) * k;
+        if (p.closing >= 0) mark(zero - cashH, cashH, "bg-transfer rounded-t-[4px]");
+        else mark(zero, cashH, "bg-transfer rounded-b-[4px]");
+        let y = zero + (p.closing < 0 ? cashH : 0) + GAP;
+        p.owed.forEach((o, j) => {
+          if (o.amount == null) {
+            mark(y, UNKNOWN_PX, "border border-dashed border-outflow rounded-[3px]");
+            y += UNKNOWN_PX + GAP;
+          } else if (o.amount > 0) {
+            const h = Math.max(o.amount * k, 2);
+            mark(y, h, "bg-outflow rounded-[2px]").style.opacity = String(OPACITY[Math.min(j, OPACITY.length - 1)]);
+            y += h + GAP;
+          }
+        });
+        if (p.capital != null) {
+          const dot = el("span", "absolute left-1/2 size-2 -ml-1 -mt-1 rounded-full bg-ink ring-2 ring-surface z-20");
+          dot.style.top = yOf(p.capital) + "px";
+          marks.append(dot);
+          points.push(`${((i + 0.5) / months.length) * 100},${yOf(p.capital)}`);
+        }
+        // Direct labels on the last month only: its cash value above the bar.
+        if (i === months.length - 1) {
+          const lab = el("span", "absolute right-0 text-[11px] mono text-ink whitespace-nowrap", mxn(p.closing));
+          lab.style.top = Math.max(0, Math.min(yOf(Math.max(p.closing, 0)), p.capital == null ? Infinity : yOf(p.capital)) - 18) + "px";
+          marks.append(lab);
+        }
+
+        const label = btn.querySelector<HTMLElement>("[data-bar-label]")!;
+        const [mon, yr] = monthName(i, "short").split(" ");
+        label.textContent = i === 0 || mon === "Jan" ? `${mon} ’${yr}` : mon;
+        if (dense && i % 2) label.classList.add("max-md:invisible");
+
+        const owedLines = p.owed.map((o) => `${o.account} owes: ${o.amount == null ? "not entered" : mxn(o.amount)}`);
+        const tip = [
+          monthName(i, "long"),
+          `Cash: ${mxn(p.closing)}`,
+          ...owedLines,
+          `Real capital: ${p.capital == null ? "can't compute" : mxn(p.capital)}`,
+        ].join("\n");
+        const tipEl = btn.querySelector<HTMLElement>("[data-tip]")!;
+        tipEl.textContent = tip;
+        tipEl.classList.add(i < months.length / 2 ? "left-0" : "right-0");
+        btn.setAttribute("aria-label", tip.replace(/\n/g, ", "));
+        btn.addEventListener("click", () => select(i));
+        bars.append(btn);
+      });
+      const svg = q("[data-line-svg]");
+      svg.setAttribute("viewBox", `0 0 100 ${PLOT}`);
+      q("[data-capital-line]").setAttribute("points", points.length === months.length ? points.join(" ") : "");
+      select(selected);
+    };
+
+    try {
+      const stored: Saved | null = JSON.parse(localStorage.getItem(KEY) ?? "null");
+      if (stored) {
+        balanceIn.value = String(stored.balance);
+        horizonIn.value = String(stored.horizon);
+      }
+    } catch {}
+
+    root.addEventListener("input", () => {
+      save();
+      render();
+    });
+    q("[data-reset]").addEventListener("click", () => {
+      balanceIn.value = String(seed.balance);
+      horizonIn.value = String(seed.horizon);
+      try {
+        localStorage.removeItem(KEY);
+      } catch {}
+      render();
+    });
+    document.addEventListener("flowchange", render);
+    render();
+  };
+
+  document.querySelectorAll<HTMLElement>("[data-debt-calc]").forEach(init);
+</script>
