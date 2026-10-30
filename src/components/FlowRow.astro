@@ -1,6 +1,7 @@
 ---
-import type { FlowCategory, Frequency } from '../data/types';
+import type { Currency, FlowCategory, Frequency } from '../data/types';
 import { frequencies, toMonthly } from '../lib/income';
+import { currencies } from '../lib/currency';
 import { fmt } from '../lib/format';
 
 interface Props {
@@ -8,18 +9,19 @@ interface Props {
   amount?: number;
   freq?: Frequency;
   category?: string;
+  currency?: Currency;
   categories: FlowCategory[];
   /** Singular noun for the line, e.g. "income" or "expense". */
   noun: string;
   placeholder: string;
 }
-const { label = '', amount, freq = 'month', categories, noun, placeholder } = Astro.props;
+const { label = '', amount, freq = 'month', currency = 'MXN', categories, noun, placeholder } = Astro.props;
 const Noun = noun[0].toUpperCase() + noun.slice(1);
 const category = Astro.props.category ?? categories[0]?.id;
 ---
 <li
   data-row
-  class="grid grid-cols-[1fr_1fr_88px] md:grid-cols-[1fr_150px_110px_130px_96px_32px] gap-2 items-center py-2 border-b border-line last:border-b-0"
+  class="grid grid-cols-[1fr_1fr_88px] md:grid-cols-[1fr_150px_80px_110px_130px_96px_32px] gap-2 items-center py-2 border-b border-line last:border-b-0"
 >
   <input
     data-label
@@ -38,8 +40,11 @@ const category = Astro.props.category ?? categories[0]?.id;
   >
     ×
   </button>
-  <select data-category class="field col-span-3 md:col-span-1" aria-label={`${Noun} type`}>
+  <select data-category class="field col-span-2 md:col-span-1" aria-label={`${Noun} type`}>
     {categories.map((c) => <option value={c.id} selected={c.id === category}>{c.label}</option>)}
+  </select>
+  <select data-currency class="field px-2" aria-label="Currency">
+    {currencies.map((c) => <option value={c.id} selected={c.id === currency}>{c.id}</option>)}
   </select>
   <input
     data-amount
@@ -49,7 +54,7 @@ const category = Astro.props.category ?? categories[0]?.id;
     min="0"
     step="any"
     placeholder="0"
-    aria-label="Amount (MXN)"
+    aria-label="Amount, in the line's currency"
     value={amount}
   />
   <select data-freq class="field" aria-label="Frequency">

@@ -33,6 +33,7 @@ export const outflows: ExpenseItem[] = [
 export const accounts: Account[] = [
   { name: 'Emergency fund', institution: 'Example Bank', amount: 40000 },
   { name: 'Checking', institution: 'Example Bank', amount: 8000 },
+  { name: 'Dollar savings', institution: 'Example Bank', amount: 500, currency: 'USD' },
 ];
 
 // Demo credit: one card paid in full each month, carrying an interest-free (MSI) purchase.

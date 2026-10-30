@@ -29,7 +29,7 @@ const { income, spend, seedAccounts, accounts, seedCredit, seedInvestments, infl
 const monthly = income - spend;
 const s = summarize(seedCredit);
 const inv = summarizeInvestments(seedInvestments, rates());
-const worth = liquidNetWorth(summarizeAccounts(seedAccounts), inv, s);
+const worth = liquidNetWorth(summarizeAccounts(seedAccounts, rates()), inv, s);
 const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-inflow/10 via-surface to-surface";
 ---
 
@@ -102,7 +102,7 @@ const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-in
 
 <script>
   import { dash, fmt } from "../lib/format";
-  import { toMonthly } from "../lib/income";
+  import { flowTotals } from "../lib/projection";
   import { readAccounts, readCredit, readFlow, readInvestments } from "../lib/flows";
   import { BASE } from "../lib/currency";
   import { chosenCurrency, rates } from "../lib/display";
@@ -115,7 +115,7 @@ const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-in
   const init = (root: HTMLElement) => {
     const q = <T extends Element = HTMLElement>(sel: string, el: ParentNode = root) => el.querySelector<T>(sel)!;
     const featured = root.dataset.featured!.split(" ");
-    const total = (id: string) => readFlow(id).reduce((a, l) => a + toMonthly(l.amount ?? 0, l.freq), 0);
+    const totals = (id: string) => flowTotals(readFlow(id), rates());
 
     const setCard = (kpi: string, value: string, note: string, status?: "healthy" | "alert") => {
       const card = q(`[data-kpi="${kpi}"]`);
@@ -142,13 +142,21 @@ const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-in
     };
 
     const render = () => {
-      const income = total(root.dataset.in!);
-      const spend = total(root.dataset.out!);
+      const inT = totals(root.dataset.in!);
+      const outT = totals(root.dataset.out!);
+      const income = inT.monthly;
+      const spend = outT.monthly;
       const monthly = income - spend;
+      const noRate = inT.unknown + outT.unknown;
       const s = summarize(readCredit(root.dataset.credit!));
       const n = s.views.length;
 
-      const card = setCard("monthly", fmt(monthly), `${fmt(income)} in · ${fmt(spend)} out`, monthly < 0 ? "alert" : undefined);
+      const card = setCard(
+        "monthly",
+        noRate ? dash() : fmt(monthly),
+        `${fmt(income)} in · ${fmt(spend)} out` + (noRate ? ` · partial: ${noRate} ${noRate === 1 ? "line has" : "lines have"} no exchange rate` : ""),
+        monthly < 0 ? "alert" : undefined,
+      );
       featured.forEach((c) => card.classList.toggle(c, monthly >= 0));
       q("small", card).classList.toggle("text-inflow", monthly >= 0);
       q("small", card).classList.toggle("font-medium", monthly >= 0);
@@ -161,12 +169,18 @@ const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-in
       else setCard("owed", fmt(s.owedKnown), `${fmt(s.payments)} a month in payments`, "alert");
 
       const inv = summarizeInvestments(readInvestments(root.dataset.investments!), rates());
-      const worth = liquidNetWorth(summarizeAccounts(readAccounts(root.dataset.accounts!)), inv, s);
+      const accts = readAccounts(root.dataset.accounts!);
+      const worth = liquidNetWorth(summarizeAccounts(accts, rates()), inv, s);
       setCard("worth", worth.value == null ? dash() : fmt(worth.value), worth.note);
       setCard("invested", inv.unknown && !inv.value ? dash() : fmt(inv.value), investedNote(inv));
 
       // Rates matter once anything is converted: a display currency other than pesos, or a foreign portfolio.
-      const converting = chosenCurrency() !== BASE || (readInvestments(root.dataset.investments!).portfolio?.currency ?? BASE) !== BASE;
+      const foreign = (c?: string) => (c ?? BASE) !== BASE;
+      const converting =
+        foreign(chosenCurrency()) ||
+        foreign(readInvestments(root.dataset.investments!).portfolio?.currency) ||
+        accts.some((a) => foreign(a.currency)) ||
+        [...readFlow(root.dataset.in!), ...readFlow(root.dataset.out!)].some((l) => foreign(l.currency));
       const warning = converting ? fxWarning(rates()?.date) : null;
       q("[data-fx-warning]").textContent = warning ?? "";
       q("[data-fx-warning]").hidden = !warning;

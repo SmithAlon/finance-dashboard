@@ -25,6 +25,7 @@ export function liquidNetWorth(acc: AccountsSummary, inv: InvestmentSummary, deb
   const gaps = [
     ...(!acc.count ? ['no accounts entered yet'] : []),
     ...(acc.unknown ? [`${plural(acc.unknown, 'account', 'accounts')} with no balance entered`] : []),
+    ...(acc.noRate ? [`no exchange rate for ${plural(acc.noRate, 'account', 'accounts')}`] : []),
     ...(owing && !debt.complete ? [`${plural(debt.unknown, 'credit account', 'credit accounts')} with no balance entered`] : []),
     ...(unknownInv ? [`${plural(unknownInv, 'investment', 'investments')} with no value known`] : []),
   ];

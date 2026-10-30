@@ -99,16 +99,17 @@ const sides = [
 
 <script>
   import { fmt, pct } from "../lib/format";
-  import { toAnnual, toMonthly } from "../lib/income";
   import { readFlow } from "../lib/flows";
+  import { flowTotals } from "../lib/projection";
+  import { rates } from "../lib/display";
 
   const init = (root: HTMLElement) => {
     const q = (sel: string) => root.querySelector<HTMLElement>(sel)!;
     const hero = q("[data-hero]");
     const pos = root.dataset.heroPos!.split(" ");
     const neg = root.dataset.heroNeg!.split(" ");
-    const total = (id: string) => readFlow(id).reduce((a, l) => a + toMonthly(l.amount ?? 0, l.freq), 0);
-    const annual = (id: string) => readFlow(id).reduce((a, l) => a + toAnnual(l.amount ?? 0, l.freq), 0);
+    const total = (id: string) => flowTotals(readFlow(id), rates()).monthly;
+    const annual = (id: string) => flowTotals(readFlow(id), rates()).annual;
 
     const render = () => {
       const income = total(root.dataset.in!);

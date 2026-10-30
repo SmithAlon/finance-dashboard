@@ -22,6 +22,7 @@ npm run preview  # serve dist/
 - **Incomes, expenses, accounts:** type them in the page. They stay in your browser. **Erase everything** at the bottom of the page removes all of it.
 - **Portfolio:** in the GBM app, open your portfolio, download its detail as CSV, and use **Import** in the Investments tab. The dollar account is converted to pesos with the build-time rate.
 - **Retirement plan savings:** add a plan under Investments → PPR, type what you add each time and how often (for example 583 twice a month).
+- **Currencies:** each account and each income or expense line has its own currency (MXN, USD or EUR); totals are converted to the currency picked at the top. Cards, loans, fixed income and PPRs are in pesos.
 - **A value you don't know:** leave it blank. It shows as missing and totals are marked partial; the dashboard never treats an empty field as 0.
 
 ## Backups and moving to another device

@@ -8,6 +8,8 @@ export interface Amounted {
 /** A monthly inflow or outflow line. */
 export interface FlowItem extends Amounted {
   label: string;
+  /** The line's own currency; absent (saved before currencies existed) means MXN. */
+  currency?: Currency;
 }
 
 /** Semantic cashflow colours shared by badges, dots and bars; `neutral` is muted ink. */
@@ -105,8 +107,10 @@ export interface CreditStore {
 export interface Account {
   name: string;
   institution: string;
-  /** Balance today; `null` until entered, never read as 0. */
+  /** Balance today, in `currency`; `null` until entered, never read as 0. */
   amount: Maybe;
+  /** The account's own currency; absent (saved before currencies existed) means MXN. */
+  currency?: Currency;
 }
 
 /** 50/30/20 shares of income; values are fractions that sum to 1. */

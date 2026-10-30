@@ -1,20 +1,22 @@
 ---
-import type { Maybe } from '../data/types';
+import type { Currency, Maybe } from '../data/types';
+import { currencies } from '../lib/currency';
 
 interface Props {
   name?: string;
   institution?: string;
   amount?: Maybe;
+  currency?: Currency;
 }
-const { name = '', institution = '', amount = null } = Astro.props;
+const { name = '', institution = '', amount = null, currency = 'MXN' } = Astro.props;
 ---
 <li
   data-row
-  class="grid grid-cols-[1fr_140px] md:grid-cols-[1fr_1fr_150px_64px_32px] gap-2 items-center py-2 border-b border-line last:border-b-0"
+  class="grid grid-cols-[1fr_72px_100px] md:grid-cols-[1fr_1fr_80px_150px_64px_32px] gap-2 items-center py-2 border-b border-line last:border-b-0"
 >
   <input
     data-f="name"
-    class="w-full min-w-0 h-9 bg-transparent border border-transparent rounded-lg px-0 text-[13px] text-ink placeholder:text-ink-3 transition-colors focus:outline-none focus:bg-surface-2 focus:border-brand focus:ring-1 focus:ring-brand focus:px-3"
+    class="w-full min-w-0 h-9 bg-transparent border border-transparent rounded-lg px-0 text-[13px] text-ink placeholder:text-ink-3 transition-colors focus:outline-none focus:bg-surface-2 focus:border-brand focus:ring-1 focus:ring-brand focus:px-3 col-span-2 md:col-span-1"
     type="text"
     placeholder="Account, e.g. Checking"
     aria-label="Account name"
@@ -30,6 +32,9 @@ const { name = '', institution = '', amount = null } = Astro.props;
     ×
   </button>
   <input data-f="institution" class="field" type="text" placeholder="Bank" aria-label="Bank or institution" value={institution} />
+  <select data-f="currency" class="field px-2" aria-label="Currency">
+    {currencies.map((c) => <option value={c.id} selected={c.id === currency}>{c.id}</option>)}
+  </select>
   <input
     data-f="amount"
     class="field mono text-right"
@@ -37,7 +42,7 @@ const { name = '', institution = '', amount = null } = Astro.props;
     inputmode="decimal"
     step="any"
     placeholder="Not entered"
-    aria-label="Balance today (MXN)"
+    aria-label="Balance today, in the account's currency"
     value={amount ?? ''}
   />
   <span data-share class="hidden md:block mono text-right text-[13px] text-ink-2">—</span>

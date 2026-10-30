@@ -150,7 +150,8 @@ const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
 
 <script>
   import { dash, fmt, fmtCompact } from "../lib/format";
-  import { project, type MonthProjection } from "../lib/projection";
+  import { flowTotals, project, type MonthProjection } from "../lib/projection";
+  import { rates } from "../lib/display";
   import { readCredit, readFlow } from "../lib/flows";
   import { confirmReset, seedOf } from "../lib/mode";
 
@@ -347,7 +348,9 @@ const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
       const known = startCash() != null;
       const start = startCash() ?? 0;
       const credit = readCredit(root.dataset.credit!);
-      months = project(start, Number(horizonIn.value), readFlow(root.dataset.in!), readFlow(root.dataset.out!), credit);
+      const lines = [...readFlow(root.dataset.in!), ...readFlow(root.dataset.out!)];
+      const noRate = flowTotals(lines, rates()).unknown;
+      months = project(start, Number(horizonIn.value), readFlow(root.dataset.in!), readFlow(root.dataset.out!), credit, rates());
       if (selected >= months.length) selected = 0;
       const first = months[0];
       const last = months[months.length - 1];
@@ -379,7 +382,9 @@ const swatch = "inline-block size-3 rounded-[3px] mr-2 shrink-0";
 
       // Takeaway above the chart.
       const cashMove = `Cash ${last.closing >= first.opening ? "grows" : "falls"} from ${fmt(first.opening)} to ${fmt(last.closing)} by ${endName}`;
-      const prefix = known ? "" : "Starting cash isn't entered, so the chart starts at $0 and shows only the change. ";
+      const prefix =
+        (known ? "" : "Starting cash isn't entered, so the chart starts at $0 and shows only the change. ") +
+        (noRate ? `${noRate} ${noRate === 1 ? "line has" : "lines have"} no exchange rate and ${noRate === 1 ? "is" : "are"} left out. ` : "");
       q("[data-have-takeaway]").textContent = prefix + (!names.length
         ? `${cashMove}. No cards or loans are entered, so nothing is shown below zero.`
         : last.unknown
