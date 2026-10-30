@@ -20,7 +20,7 @@ Source of truth is `src/styles/global.css`. If this file and the CSS disagree, t
 
 Light values for brand, transfer and passive were derived (the spec did not give them). Contrast was not measured.
 
-Shadow `shadow-card` is a faint top highlight plus soft drop in dark, a light drop in light. Font: Inter only. Never pure black.
+Shadow `shadow-card` is a faint top highlight plus soft drop in dark, a light drop in light. Font: Inter only, self-hosted (`public/fonts`, latin and latin-ext subsets, declared at the top of `global.css`); never load it from Google Fonts or any other host, the CSP blocks it. Never pure black.
 
 ## Utilities (all in global.css)
 
