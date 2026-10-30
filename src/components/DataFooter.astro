@@ -1,0 +1,24 @@
+---
+// The page footer: what can be done with the data saved in this browser.
+const btn =
+  "inline-flex items-center rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-brand hover:text-brand-hover hover:bg-brand/10 transition-colors cursor-pointer";
+const danger =
+  "inline-flex items-center rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-ink-2 hover:text-outflow hover:bg-outflow/10 transition-colors cursor-pointer";
+---
+
+<footer data-data-footer class="mt-6 pt-5 border-t border-line grid gap-3 text-[13px]" aria-labelledby="data-footer-title">
+  <h2 id="data-footer-title" class="label">Your data in this browser</h2>
+  <div class="flex flex-wrap items-center gap-1 -ml-2.5">
+    <button data-load-demo type="button" class={btn}>Load demo data</button>
+    <button data-erase type="button" class={danger}>Erase everything</button>
+  </div>
+</footer>
+
+<script>
+  import { eraseAll, loadDemo } from "../lib/mode";
+
+  document.querySelectorAll<HTMLElement>("[data-data-footer]").forEach((root) => {
+    root.querySelector("[data-load-demo]")!.addEventListener("click", loadDemo);
+    root.querySelector("[data-erase]")!.addEventListener("click", eraseAll);
+  });
+</script>

@@ -1,6 +1,6 @@
-// Single source of truth for the dashboard. Edit numbers here; everything recomputes.
-// These are SAMPLE figures for a fictional user: replace them with your own. Edits made in the
-// browser are kept in localStorage and never written back to this file.
+// Demo data for a fictional user, plus the category lists every visitor uses. A first visit starts
+// blank (src/data/blank.ts); these figures load only after "Load demo data". Edits made in the
+// browser are kept in localStorage and never written back to this file. Keep real numbers out.
 
 import type { Account, ActionItem, CreditStore, Defaults, ExpenseCategory, ExpenseItem, Framework, Goals, IncomeCategory, IncomeItem, InvestmentStore } from './types';
 
@@ -31,17 +31,24 @@ export const outflows: ExpenseItem[] = [
 ];
 
 export const accounts: Account[] = [
-  { name: 'Emergency fund', institution: 'Example Bank', purpose: 'Three months of expenses', amount: 40000 },
-  { name: 'Checking', institution: 'Example Bank', purpose: 'Operational cash flow', amount: 8000 },
+  { name: 'Emergency fund', institution: 'Example Bank', amount: 40000 },
+  { name: 'Checking', institution: 'Example Bank', amount: 8000 },
 ];
 
-// Starting values for the Debt tab's credit accounts; the editor's changes are kept in the browser.
-// Nothing is listed as outstanding in the sample.
-export const credit: CreditStore = { accounts: [], msi: [] };
+// Demo credit: one card paid in full each month, carrying an interest-free (MSI) purchase.
+export const credit: CreditStore = {
+  accounts: [
+    {
+      id: 'demo-card', type: 'card', issuer: 'other', issuerOther: 'Example Bank', nickname: 'Everyday card',
+      interestRate: 45, dueDay: 5, balanceUpdatedAt: '2026-10-25', creditLimit: 30000, currentBalance: 14600,
+      statementBalance: 4800, cutoffDay: 15, payToAvoidInterest: 4800, minimumPayment: 600, plannedPayment: 4800, cat: 62,
+    },
+  ],
+  msi: [{ id: 'demo-msi', cardId: 'demo-card', merchant: 'Laptop', monthlyAmount: 1400, monthsRemaining: 7 }],
+};
 
-// Starting values for the Investments tab; the editor's changes are kept in the browser. The
-// portfolio is the GBM export saved next to this file, parsed in index.astro; to update it, replace
-// the CSV (and `name`, whose timestamp dates it) or import a newer one from the tab.
+// Demo investments. The portfolio is the sample GBM export saved next to this file, parsed in
+// index.astro; its file name's timestamp dates it.
 export const investments: InvestmentStore = { portfolio: null, fixedIncome: [], ppr: [] };
 export { default as gbmPortfolioCsv } from './gbm-portfolio.csv?raw';
 export const gbmPortfolioFile = 'App_GBM_Detalle_Portafolio_USA_1790000000000.csv';

@@ -1,0 +1,152 @@
+---
+// The Accounts tab's editor: cash in banks and savings accounts. Publishes its rows on
+// `data-state` and fires `flowchange`, like FlowForm, so others can `readAccounts(id)`.
+import AccountRow from "./AccountRow.astro";
+import type { Account } from "../data/types";
+import { summarizeAccounts } from "../lib/accounts";
+import { mxn } from "../lib/format";
+
+interface Props {
+  /** `data-flow-id` and localStorage prefix. */
+  id: string;
+  /** Rows a first visit starts with (none). */
+  seed: Account[];
+  /** The demo rows, loaded only in demo mode. */
+  demo: Account[];
+}
+const { id, seed, demo } = Astro.props;
+const s = summarizeAccounts(seed);
+const addBtn =
+  "inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-brand hover:text-brand-hover hover:bg-brand/10 transition-colors cursor-pointer";
+---
+
+<section
+  class="card"
+  aria-labelledby={`${id}-title`}
+  data-accounts-editor
+  data-flow-id={id}
+  data-key={`finance:${id}:v1`}
+  data-seed={JSON.stringify(seed)}
+  data-demo={JSON.stringify(demo)}
+>
+  <header class="flex flex-wrap items-start justify-between gap-3 mb-1.5">
+    <h2 id={`${id}-title`} class="text-2xl">Accounts</h2>
+    <button data-reset type="button" class={addBtn}>Reset</button>
+  </header>
+  <p class="sub">
+    Cash in banks and savings accounts. If you don't know a balance, leave it blank: it shows as missing, never as
+    $0. Brokerage cash is already counted in the GBM portfolio, so don't list it here.
+  </p>
+
+  <div class="hidden md:grid grid-cols-[1fr_1fr_150px_64px_32px] gap-2 label pb-1 border-b border-line">
+    <span>Account</span>
+    <span>Institution</span>
+    <span class="text-right">Balance</span>
+    <span class="text-right">Share</span>
+  </div>
+  <ul data-rows>
+    {seed.map((a) => <AccountRow name={a.name} institution={a.institution} amount={a.amount} />)}
+  </ul>
+  <p data-empty class="text-ink-2 text-[13px] py-2" hidden={seed.length > 0}>No accounts yet.</p>
+  <button data-add type="button" class:list={[addBtn, "mt-3 -ml-2.5"]}>+ Add account</button>
+
+  <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 mt-4 pt-3 border-t border-line">
+    <span class="font-semibold text-[13.5px]">Total in accounts, before credit owed</span>
+    <span class="grid justify-items-end ml-auto">
+      <b class="mono text-lg" data-total aria-live="polite">{s.total == null ? "$—" : mxn(s.total)}</b>
+      <small class="text-ink-2 text-[13px]" data-total-note></small>
+    </span>
+  </div>
+
+  <template data-row-template><AccountRow /></template>
+</section>
+
+<script>
+  import type { Account } from "../data/types";
+  import { summarizeAccounts } from "../lib/accounts";
+  import { mxn, pct } from "../lib/format";
+  import { confirmReset, seedOf } from "../lib/mode";
+
+  const init = (root: HTMLElement) => {
+    const KEY = root.dataset.key!;
+    const q = <T extends Element = HTMLElement>(sel: string, el: ParentNode = root) => el.querySelector<T>(sel)!;
+    const list = q("[data-rows]");
+    const tpl = q<HTMLTemplateElement>("[data-row-template]");
+    const field = (row: Element, f: string) => q<HTMLInputElement>(`[data-f="${f}"]`, row);
+
+    const addRow = (a?: Account) => {
+      const row = tpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
+      if (a) {
+        field(row, "name").value = a.name;
+        field(row, "institution").value = a.institution;
+        field(row, "amount").value = a.amount == null ? "" : String(a.amount);
+      }
+      list.append(row);
+      return row;
+    };
+    const fill = (rows: Account[]) => {
+      list.replaceChildren();
+      rows.forEach((a) => addRow(a));
+    };
+
+    const recalc = () => {
+      const rows = [...list.querySelectorAll<HTMLElement>("[data-row]")];
+      const state: Account[] = rows.map((row) => {
+        const raw = field(row, "amount").value;
+        return { name: field(row, "name").value, institution: field(row, "institution").value, amount: raw === "" ? null : Number(raw) || 0 };
+      });
+      const s = summarizeAccounts(state);
+      rows.forEach((row, i) => {
+        const a = state[i].amount;
+        q("[data-share]", row).textContent = a == null || !s.known ? "—" : pct(a / s.known);
+      });
+      q("[data-empty]").hidden = rows.length > 0;
+      q("[data-total]").textContent = s.count ? mxn(s.known) : "$—";
+      q("[data-total-note]").textContent = !s.count
+        ? "Add an account to see the total"
+        : s.unknown
+          ? `Partial: ${s.count - s.unknown} of ${s.count} balances entered`
+          : "";
+      root.dataset.state = JSON.stringify(state);
+      root.dispatchEvent(new CustomEvent("flowchange", { bubbles: true }));
+      return state;
+    };
+
+    const save = () => {
+      const state = recalc();
+      try {
+        localStorage.setItem(KEY, JSON.stringify(state));
+      } catch {}
+    };
+
+    let rows: Account[] = seedOf<Account[]>(root);
+    try {
+      const stored = JSON.parse(localStorage.getItem(KEY) ?? "null");
+      if (Array.isArray(stored)) rows = stored;
+    } catch {}
+    fill(rows);
+    recalc();
+
+    root.addEventListener("input", save);
+    root.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest("button");
+      if (!btn) return;
+      if (btn.matches("[data-add]")) {
+        field(addRow(), "name").focus();
+      } else if (btn.matches("[data-remove]")) {
+        btn.closest("[data-row]")!.remove();
+      } else if (btn.matches("[data-reset]")) {
+        if (!confirmReset()) return;
+        fill(seedOf<Account[]>(root));
+        try {
+          localStorage.removeItem(KEY);
+        } catch {}
+        recalc();
+        return;
+      } else return;
+      save();
+    });
+  };
+
+  document.querySelectorAll<HTMLElement>("[data-accounts-editor]").forEach(init);
+</script>

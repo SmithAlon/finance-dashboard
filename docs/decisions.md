@@ -4,6 +4,8 @@ Product decisions that are not obvious from the code. Newest first. Update this 
 
 ## Decided (2026-10-30)
 
+- **A first visit starts blank.** The demo (`finance.ts`) loads only from "Load demo data", with a banner until the visitor starts blank. The choice is `finance:mode:v1`; visitors with data saved from before are treated as their own data. Accounts became an editable list (`finance:accounts:v1`), and the projection's starting cash may be left blank (unknown).
+
 - **Portfolio counts toward net worth**, valued at the latest USD→MXN rate. Built: liquid net worth = accounts + portfolio + fixed income − credit owed, with PPR excluded (locked until retirement) and "can't compute" when an investment has no value. The rate's age is shown in the portfolio note, and a warning appears above the totals once it is more than 7 days old (`FX_STALE_DAYS` in `src/lib/fx.ts`).
 - **Unknown is not zero.** A balance the user has not entered stays "unknown": totals are marked partial and real capital shows "can't compute". Never coerce to 0.
 - **Savings routines are entered by the user**, never seeded or hardcoded. A routine is a transfer into assets (it shows on the Investments side), not an expense, so it does not change the Balance tab or net worth. It is a fixed amount plus a frequency, including "twice a month". Today it lives on a PPR row.

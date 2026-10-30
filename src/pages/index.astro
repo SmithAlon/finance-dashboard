@@ -6,7 +6,9 @@ import Tabs from "../components/Tabs.astro";
 import TabPanel from "../components/TabPanel.astro";
 import FlowForm from "../components/FlowForm.astro";
 import CreditAccounts from "../components/CreditAccounts.astro";
-import BalanceSheet from "../components/BalanceSheet.astro";
+import AccountsForm from "../components/AccountsForm.astro";
+import FirstRun from "../components/FirstRun.astro";
+import DataFooter from "../components/DataFooter.astro";
 import DebtSummary from "../components/DebtSummary.astro";
 import DebtCalculator from "../components/DebtCalculator.astro";
 import BalanceView from "../components/BalanceView.astro";
@@ -25,34 +27,34 @@ import {
   goals,
   actionPlan,
 } from "../data/finance";
+import { blank } from "../data/blank";
 import { parseGbmCsv } from "../lib/gbm";
+import { summarizeAccounts } from "../lib/accounts";
 import prices from "../data/prices.json";
-import type { Amounted, PriceFeed } from "../data/types";
+import type { PriceFeed } from "../data/types";
 
-const sum = (xs: Amounted[]) => xs.reduce((a, x) => a + x.amount, 0);
-const income = sum(inflows);
-const spend = sum(outflows);
-const balance = sum(accounts);
-const guaranteeDeposit =
-  accounts.find((a) => a.name.startsWith("Credit"))?.amount ?? 0;
+// The server renders the blank first-visit state; finance.ts is only the demo, passed to each
+// editor as `demo` and loaded in the browser when the visitor asks for it.
 const feed = prices as PriceFeed;
-const seedInvestments = { ...investments, portfolio: parseGbmCsv(gbmPortfolioCsv, gbmPortfolioFile) };
+const demoInvestments = { ...investments, portfolio: parseGbmCsv(gbmPortfolioCsv, gbmPortfolioFile) };
 ---
 
 <Base title="Finance Dashboard">
   <main class="max-w-[1040px] mx-auto px-4 pt-8 pb-16 grid gap-4">
     <Header asOf={goals.today} />
+    <FirstRun />
 
     <Headline
-      income={income}
-      spend={spend}
-      assets={balance}
-      seedCredit={credit}
-      seedInvestments={seedInvestments}
+      income={0}
+      spend={0}
+      seedAccounts={blank.accounts}
+      seedCredit={blank.credit}
+      seedInvestments={blank.investments}
       usdMxn={feed.usdMxn?.rate ?? null}
       fxDate={feed.usdMxn?.date ?? null}
       inflows="inflows"
       outflows="outflows"
+      accounts="accounts"
       credit="credit"
       investments="investments"
     />
@@ -60,7 +62,7 @@ const seedInvestments = { ...investments, portfolio: parseGbmCsv(gbmPortfolioCsv
     <Tabs />
 
     <TabPanel id="balance">
-      <BalanceView income={income} spend={spend} inflows="inflows" outflows="outflows">
+      <BalanceView income={0} spend={0} inflows="inflows" outflows="outflows">
         <FlowForm
           slot="inflows"
           id="inflows"
@@ -70,7 +72,8 @@ const seedInvestments = { ...investments, portfolio: parseGbmCsv(gbmPortfolioCsv
           totalLabel="Total monthly income"
           tone="inflow"
           categories={incomeCategories}
-          items={inflows}
+          items={blank.inflows}
+          demo={inflows}
           legacyKey="finance:inflows:v1"
         />
         <FlowForm
@@ -82,15 +85,17 @@ const seedInvestments = { ...investments, portfolio: parseGbmCsv(gbmPortfolioCsv
           totalLabel="Total monthly spending"
           tone="outflow"
           categories={expenseCategories}
-          items={outflows}
+          items={blank.outflows}
+          demo={outflows}
         />
       </BalanceView>
     </TabPanel>
 
     <TabPanel id="debt" hidden class="grid gap-4">
-      <CreditAccounts id="credit" seed={credit} legacyKey="finance:credits:v2" />
+      <CreditAccounts id="credit" seed={blank.credit} demo={credit} legacyKey="finance:credits:v2" />
       <DebtCalculator
-        balance={balance}
+        balance={blank.startingCash}
+        demoBalance={summarizeAccounts(accounts).total}
         inflows="inflows"
         outflows="outflows"
         credit="credit"
@@ -99,18 +104,19 @@ const seedInvestments = { ...investments, portfolio: parseGbmCsv(gbmPortfolioCsv
     </TabPanel>
 
     <TabPanel id="accounts" hidden class="grid gap-4">
-      <BalanceSheet accounts={accounts} />
+      <AccountsForm id="accounts" seed={blank.accounts} demo={accounts} />
       <DebtSummary
         credit="credit"
         inflows="inflows"
-        assets={balance}
-        guaranteeDeposit={guaranteeDeposit}
+        accounts="accounts"
         actions={actionPlan.filter((a) => a.title.includes("card utilization"))}
       />
     </TabPanel>
 
     <TabPanel id="investments" hidden class="grid gap-4 min-w-0">
-      <Investments id="investments" seed={seedInvestments} prices={feed} />
+      <Investments id="investments" seed={blank.investments} demo={demoInvestments} prices={feed} />
     </TabPanel>
+
+    <DataFooter />
   </main>
 </Base>

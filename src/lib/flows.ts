@@ -1,4 +1,4 @@
-import type { CreditStore, InvestmentStore, Maybe } from '../data/types';
+import type { Account, CreditStore, InvestmentStore, Maybe } from '../data/types';
 import type { ProjectionLine } from './projection';
 
 /**
@@ -16,6 +16,7 @@ export const readState = <T>(id: string, fallback: T): T => {
 };
 
 export const readFlow = (id: string): ProjectionLine[] => readState<ProjectionLine[]>(id, []);
+export const readAccounts = (id: string): Account[] => readState<Account[]>(id, []);
 export const readCredit = (id: string): CreditStore => readState<CreditStore>(id, { accounts: [], msi: [] });
 export const readInvestments = (id: string): InvestmentStore =>
   readState<InvestmentStore>(id, { portfolio: null, fixedIncome: [], ppr: [] });

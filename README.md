@@ -4,7 +4,7 @@ A single-page personal finance dashboard built with Astro and Tailwind CSS v4. I
 
 It shows four tabs: **Balance** (incomes and expenses), **Debt** (credit cards, MSI plans and loans), **Accounts**, and **Investments** (a GBM portfolio, fixed income and retirement plans).
 
-> The figures in `src/data/finance.ts` and `src/data/gbm-portfolio.csv` are **sample data** for a fictional user. Replace them with your own.
+A first visit starts blank. **Load demo data** fills it with a fictional person's finances (`src/data/finance.ts` and `src/data/gbm-portfolio.csv`) so you can see how it works; a banner says so until you choose **Start blank**.
 
 ## Run it
 
@@ -19,7 +19,7 @@ npm run preview  # serve dist/
 
 ## Make it yours
 
-- **Incomes, expenses, accounts:** edit them in the page, or change the starting values in `src/data/finance.ts`. Edits in the page stay in your browser; the file is only the starting point, and each form has a "Reset to saved profile" button.
+- **Incomes, expenses, accounts:** type them in the page. They stay in your browser. **Erase everything** at the bottom of the page removes all of it.
 - **Portfolio:** in the GBM app, open your portfolio, download its detail as CSV, and use **Import** in the Investments tab. The dollar account is converted to pesos with the build-time rate.
 - **Retirement plan savings:** add a plan under Investments → PPR, type what you add each time and how often (for example 583 twice a month).
 - **A value you don't know:** leave it blank. It shows as missing and totals are marked partial; the dashboard never treats an empty field as 0.

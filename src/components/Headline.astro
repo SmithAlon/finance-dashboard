@@ -3,18 +3,18 @@
 // summary and the "Included in these totals" strip. Rendered from the seed, then kept live from
 // the forms (`readFlow` / `readCredit`) on every `flowchange`.
 import KpiCard from "./KpiCard.astro";
-import type { CreditStore, InvestmentStore, Maybe } from "../data/types";
+import type { Account, CreditStore, InvestmentStore, Maybe } from "../data/types";
+import { summarizeAccounts } from "../lib/accounts";
 import { mxn } from "../lib/format";
 import { summarize, summarySentence } from "../lib/credit";
 import { investedNote, summarizeInvestments } from "../lib/investments";
 import { liquidNetWorth } from "../lib/networth";
 
 interface Props {
-  /** Seed totals (monthly) from finance.ts. */
+  /** Seed totals (monthly); the script swaps in the live forms. */
   income: number;
   spend: number;
-  /** What the accounts in finance.ts hold today. */
-  assets: number;
+  seedAccounts: Account[];
   seedCredit: CreditStore;
   seedInvestments: InvestmentStore;
   /** Build-time USD→MXN rate, so a dollar portfolio is valued like the editor values it. */
@@ -24,14 +24,15 @@ interface Props {
   /** `data-flow-id`s of the forms read live. */
   inflows: string;
   outflows: string;
+  accounts: string;
   credit: string;
   investments: string;
 }
-const { income, spend, assets, seedCredit, seedInvestments, usdMxn, fxDate, inflows, outflows, credit, investments } = Astro.props;
+const { income, spend, seedAccounts, accounts, seedCredit, seedInvestments, usdMxn, fxDate, inflows, outflows, credit, investments } = Astro.props;
 const monthly = income - spend;
 const s = summarize(seedCredit);
 const inv = summarizeInvestments(seedInvestments, usdMxn);
-const worth = liquidNetWorth(assets, inv, s);
+const worth = liquidNetWorth(summarizeAccounts(seedAccounts), inv, s);
 const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-inflow/10 via-surface to-surface";
 ---
 
@@ -42,7 +43,7 @@ const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-in
   data-out={outflows}
   data-credit={credit}
   data-investments={investments}
-  data-assets={assets}
+  data-accounts={accounts}
   data-fx-date={fxDate ?? ""}
   data-featured={featured}
 >
@@ -106,7 +107,8 @@ const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-in
 <script>
   import { mxn } from "../lib/format";
   import { toMonthly } from "../lib/income";
-  import { readCredit, readFlow, readInvestments, readUsdMxn } from "../lib/flows";
+  import { readAccounts, readCredit, readFlow, readInvestments, readUsdMxn } from "../lib/flows";
+  import { summarizeAccounts } from "../lib/accounts";
   import { summarize, summarySentence } from "../lib/credit";
   import { investedNote, summarizeInvestments } from "../lib/investments";
   import { liquidNetWorth } from "../lib/networth";
@@ -114,7 +116,6 @@ const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-in
 
   const init = (root: HTMLElement) => {
     const q = <T extends Element = HTMLElement>(sel: string, el: ParentNode = root) => el.querySelector<T>(sel)!;
-    const assets = Number(root.dataset.assets);
     const featured = root.dataset.featured!.split(" ");
     const total = (id: string) => readFlow(id).reduce((a, l) => a + toMonthly(l.amount ?? 0, l.freq), 0);
 
@@ -162,7 +163,7 @@ const featured = "border-inflow/30 ring-1 ring-inflow/20 bg-linear-to-br from-in
       else setCard("owed", mxn(s.owedKnown), `${mxn(s.payments)} a month in payments`, "alert");
 
       const inv = summarizeInvestments(readInvestments(root.dataset.investments!), readUsdMxn(root.dataset.investments!));
-      const worth = liquidNetWorth(assets, inv, s);
+      const worth = liquidNetWorth(summarizeAccounts(readAccounts(root.dataset.accounts!)), inv, s);
       setCard("worth", worth.value == null ? "$—" : mxn(worth.value), worth.note);
       setCard("invested", inv.unknown && !inv.value ? "$—" : mxn(inv.value), investedNote(inv));
 
